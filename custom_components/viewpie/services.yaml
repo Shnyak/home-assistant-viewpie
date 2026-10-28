@@ -1,0 +1,75 @@
+fullscreen:
+  name: Fullscreen camera
+  description: >-
+    Show a single camera on the whole screen of the viewpie camera wall.
+    Optionally return to the grid automatically after a given duration.
+  fields:
+    camera:
+      name: Camera
+      description: Name (id) of the camera to display fullscreen.
+      required: true
+      selector:
+        text:
+    duration:
+      name: Duration (seconds)
+      description: Automatically return to grid after N seconds.
+      required: false
+      selector:
+        number:
+          min: 10
+          max: 3600
+          unit_of_measurement: seconds
+          mode: box
+    entry_id:
+      name: Config entry
+      description: >-
+        Optional config entry id, when multiple viewpie devices are configured.
+        Applies to all devices when omitted.
+      required: false
+      advanced: true
+      selector:
+        text:
+
+switch_panel:
+  name: Switch panel
+  description: Activate another panel (scene) on the camera wall.
+  fields:
+    panel:
+      name: Panel ID
+      description: Identifier of the panel to activate.
+      required: true
+      selector:
+        text:
+    entry_id:
+      name: Config entry
+      description: >-
+        Optional config entry id, when multiple viewpie devices are configured.
+        Applies to all devices when omitted.
+      required: false
+      advanced: true
+      selector:
+        text:
+
+set_spacing:
+  name: Set spacing
+  description: Change the divider line thickness between camera tiles.
+  fields:
+    spacing:
+      name: Spacing (pixels)
+      description: Divider thickness in pixels.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 20
+          unit_of_measurement: px
+          mode: slider
+    entry_id:
+      name: Config entry
+      description: >-
+        Optional config entry id, when multiple viewpie devices are configured.
+        Applies to all devices when omitted.
+      required: false
+      advanced: true
+      selector:
+        text:

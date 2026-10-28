@@ -1,0 +1,6 @@
+{
+  "name": "Viewpie Camera Wall",
+  "render_readme": true,
+  "domains": ["switch", "select", "number", "button", "sensor", "binary_sensor"],
+  "iot_class": "local_polling"
+}
