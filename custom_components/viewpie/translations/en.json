@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Viewpie",
+        "description": "Enter the address of the device running the modified viewpie with HTTP API.",
+        "data": {
+          "host": "IP address or hostname",
+          "port": "Port",
+          "api_key": "API key (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device",
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}

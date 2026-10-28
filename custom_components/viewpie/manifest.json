@@ -1,0 +1,14 @@
+{
+  "domain": "viewpie",
+  "name": "Viewpie Camera Wall",
+  "version": "1.0.0",
+  "documentation": "https://github.com/YOUR_USERNAME/viewpie-ha-integration",
+  "issue_tracker": "https://github.com/YOUR_USERNAME/viewpie-ha-integration/issues",
+  "dependencies": [],
+  "codeowners": ["@YOUR_USERNAME"],
+  "requirements": ["aiohttp>=3.9.0"],
+  "iot_class": "local_polling",
+  "config_flow": true,
+  "homeassistant": "2024.1.0",
+  "loggers": ["custom_components.viewpie"]
+}
