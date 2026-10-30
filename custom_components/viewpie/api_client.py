@@ -128,7 +128,7 @@ class ViewpieApiClient:
         assert self._session is not None
 
         url = f"{self._base_url}{path}"
-        _LOGGER.debug("viewpie request: %s %s payload=%s", method, url, data)
+        _LOGGER.debug("viewpie request: %s %s", method, url)
         try:
             async with self._session.request(
                 method, url, json=data, headers=self._headers()
