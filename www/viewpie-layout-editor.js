@@ -143,6 +143,58 @@ class ViewpieLayoutEditor extends HTMLElement {
       }
     }
     card.append(grid);
+
+    const previewTitle = this._el("h3", {}, "Предпросмотр раскладки до сохранения");
+    previewTitle.style.margin = "20px 0 8px";
+    card.append(previewTitle);
+    const preview = this._el("div", { class: "preview-grid" });
+    preview.style.display = "grid";
+    preview.style.gridTemplateColumns = `repeat(${this._cols}, minmax(0, 1fr))`;
+    preview.style.gap = "4px";
+    preview.style.padding = "4px";
+    preview.style.border = "1px solid var(--divider-color)";
+    preview.style.borderRadius = "8px";
+    preview.style.background = "var(--primary-background-color)";
+    for (let r = 0; r < this._rows; r++) {
+      for (let c = 0; c < this._cols; c++) {
+        const key = `${r},${c}`;
+        const raw = this._cells[key];
+        const cameras = (Array.isArray(raw) ? raw : (raw ? [raw] : [])).filter(Boolean);
+        const previewCell = this._el("div", { class: "preview-cell" });
+        previewCell.style.minHeight = "72px";
+        previewCell.style.minWidth = "0";
+        previewCell.style.padding = "8px";
+        previewCell.style.boxSizing = "border-box";
+        previewCell.style.border = "1px solid var(--divider-color)";
+        previewCell.style.borderRadius = "5px";
+        previewCell.style.background = "var(--card-background-color)";
+        previewCell.style.display = "flex";
+        previewCell.style.flexDirection = "column";
+        previewCell.style.justifyContent = "center";
+        previewCell.style.textAlign = "center";
+        previewCell.style.overflowWrap = "anywhere";
+        if (cameras.length) {
+          cameras.forEach(camera => {
+            const label = this._el("div", {}, camera);
+            label.style.fontSize = ".85rem";
+            label.style.padding = "2px 0";
+            previewCell.append(label);
+          });
+          if (cameras.length > 1) {
+            const count = this._el("small", {}, cameras.length + " камеры в ячейке");
+            count.style.color = "var(--secondary-text-color)";
+            previewCell.append(count);
+          }
+        } else {
+          const empty = this._el("span", {}, "Пусто");
+          empty.style.color = "var(--secondary-text-color)";
+          empty.style.fontSize = ".8rem";
+          previewCell.append(empty);
+        }
+        preview.append(previewCell);
+      }
+    }
+    card.append(preview);
     const help = this._el("p", { class: "muted" },
       "Пустые ячейки разрешены. Сохранение изменяет выбранную панель или создаёт новую.");
     card.append(help);
