@@ -189,11 +189,10 @@ data:
 
 ### Установка карточки
 
-1. Скопируйте файл `www/viewpie-layout-editor.js` из репозитория в каталог Home Assistant `/config/www/viewpie-layout-editor.js`.
-2. В Home Assistant откройте **Настройки → Панели (Dashboards) → Ресурсы (Resources)** и добавьте ресурс:
-   - URL: `/local/viewpie-layout-editor.js`
+1. После обновления интеграции откройте **Настройки → Панели (Dashboards) → Ресурсы (Resources)** и добавьте ресурс:
+   - URL: `/viewpie/viewpie-layout-editor.js`
    - Тип: **JavaScript Module**.
-3. Обновите страницу Home Assistant. Если карточка не появилась, очистите кэш браузера.
+2. Обновите страницу Home Assistant. Файл карточки поставляется вместе с интеграцией и обновляется через HACS; копировать его в `/config/www` больше не нужно.
 
 Добавьте на dashboard карточку через ручной YAML:
 

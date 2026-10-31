@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -39,6 +40,33 @@ from .const import (
 from .coordinator import ViewpieCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+    """Register the bundled Lovelace layout editor as a static resource."""
+    editor_path = Path(__file__).parent / "www" / "viewpie-layout-editor.js"
+    if not editor_path.is_file():
+        return True
+
+    url_path = "/viewpie/viewpie-layout-editor.js"
+    if hasattr(hass.http, "async_register_static_paths"):
+        from homeassistant.components.http import StaticPathConfig
+
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(
+                    url_path=url_path,
+                    path=str(editor_path),
+                    cache_headers=False,
+                )
+            ]
+        )
+    else:
+        # Compatibility with Home Assistant versions before async static paths.
+        hass.http.register_static_path(
+            url_path, str(editor_path), cache_headers=False
+        )
+    return True
 ViewpieApiClient = _ViewpieApiClient
 
 
