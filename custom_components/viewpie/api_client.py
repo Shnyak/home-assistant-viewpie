@@ -193,7 +193,7 @@ class ViewpieApiClient:
         self, name: str, url: str, fullscreen_url: Optional[str] = None
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"name": name, "url": url}
-        if fullscreen_url:
+        if fullscreen_url is not None:
             payload["fullscreen_url"] = fullscreen_url
         result = await self._request("POST", API_CAMERAS, payload)
         return result if isinstance(result, dict) else {}
