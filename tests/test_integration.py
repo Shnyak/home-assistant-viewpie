@@ -61,7 +61,7 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     await _add_entry(hass)
     states = {s.entity_id: s for s in hass.states.async_all()}
 
-    sw = states[f"switch.{DOMAIN}_viewpi_pause"]
+    sw = states[f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana"]
     assert sw.state == "off"
     await hass.services.async_call(
         "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
