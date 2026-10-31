@@ -179,7 +179,7 @@ async def _run_e2e(hass: HomeAssistant):
         entry = hass.config_entries.async_entries(DOMAIN)[0]
         await hass.async_block_till_done()
         states = {s.entity_id for s in hass.states.async_all()}
-        assert "switch.viewpie_127_0_0_1_pause" in states, states
+        assert "switch.viewpie_127_0_0_1_vykliuchenie_ekrana" in states, states
         # Bearer token was sent
         assert seen_auth and seen_auth[0] == "Bearer testkey"
         # Unload closes the session cleanly (no unclosed-session errors)
