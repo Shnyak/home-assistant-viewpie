@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any, Optional
@@ -58,13 +57,10 @@ class ViewpieApiClient:
     async def async_init(self) -> None:
         """Create an internal aiohttp session if none was injected."""
         if self._session is None:
-            loop = asyncio.get_running_loop()
-            resolver = aiohttp.ThreadedResolver(loop=loop)
             connector = aiohttp.TCPConnector(
                 limit=4,
                 ttl_dns_cache=300,
                 force_close=True,
-                resolver=resolver,
             )
             self._session = aiohttp.ClientSession(
                 timeout=ClientTimeout(total=REQUEST_TIMEOUT_SECONDS),
@@ -202,7 +198,8 @@ class ViewpieApiClient:
         self, name: str, url: str, fullscreen_url: Optional[str] = None
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"name": name, "url": url}
-        if fullscreen_url:
+        if fullscreen_url is not None:
+            # An explicit empty string clears the optional fullscreen URL.
             payload["fullscreen_url"] = fullscreen_url
         result = await self._request(
             "PUT", f"{API_CAMERAS}/{quote(name, safe='')}", payload
