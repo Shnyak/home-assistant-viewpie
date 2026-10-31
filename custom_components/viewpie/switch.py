@@ -40,9 +40,9 @@ async def async_setup_entry(
 
 
 class ViewpiePauseSwitch(ViewpieEntity, SwitchEntity):
-    """Switch to pause / resume the camera wall."""
+    """Switch the camera wall screen off / on."""
 
-    _attr_name = "Pause"
+    _attr_name = "Выключение экрана"
     _attr_icon = "mdi:pause-circle"
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:
@@ -52,18 +52,18 @@ class ViewpiePauseSwitch(ViewpieEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return True when the wall is paused."""
+        """Return True when the camera wall screen is off."""
         return bool(self.status.get("paused", False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Pause the camera wall."""
+        """Turn the camera wall screen off."""
         try:
             await self.coordinator.async_pause()
         except ViewpieConnectionError as err:
             raise HomeAssistantError(f"Failed to pause viewpie: {err}") from err
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Resume the camera wall."""
+        """Turn the camera wall screen on."""
         try:
             await self.coordinator.async_resume()
         except ViewpieConnectionError as err:

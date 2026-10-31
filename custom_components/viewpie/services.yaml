@@ -1,18 +1,12 @@
 fullscreen:
   name: Fullscreen camera
-  description: >-
-    Show a single camera on the whole screen of the viewpie camera wall.
-    Optionally return to the grid automatically after a given duration.
+  description: Show one camera full-screen and optionally return to grid.
   fields:
     camera:
-      name: Camera
-      description: Name (id) of the camera to display fullscreen.
       required: true
       selector:
         text:
     duration:
-      name: Duration (seconds)
-      description: Automatically return to grid after N seconds.
       required: false
       selector:
         number:
@@ -21,10 +15,6 @@ fullscreen:
           unit_of_measurement: seconds
           mode: box
     entry_id:
-      name: Config entry
-      description: >-
-        Optional config entry id, when multiple viewpie devices are configured.
-        Applies to all devices when omitted.
       required: false
       advanced: true
       selector:
@@ -32,19 +22,13 @@ fullscreen:
 
 switch_panel:
   name: Switch panel
-  description: Activate another panel (scene) on the camera wall.
+  description: Activate a configured panel.
   fields:
     panel:
-      name: Panel ID
-      description: Identifier of the panel to activate.
       required: true
       selector:
         text:
     entry_id:
-      name: Config entry
-      description: >-
-        Optional config entry id, when multiple viewpie devices are configured.
-        Applies to all devices when omitted.
       required: false
       advanced: true
       selector:
@@ -52,11 +36,9 @@ switch_panel:
 
 set_spacing:
   name: Set spacing
-  description: Change the divider line thickness between camera tiles.
+  description: Change the divider thickness between camera tiles.
   fields:
     spacing:
-      name: Spacing (pixels)
-      description: Divider thickness in pixels.
       required: true
       selector:
         number:
@@ -65,10 +47,87 @@ set_spacing:
           unit_of_measurement: px
           mode: slider
     entry_id:
-      name: Config entry
-      description: >-
-        Optional config entry id, when multiple viewpie devices are configured.
-        Applies to all devices when omitted.
+      required: false
+      advanced: true
+      selector:
+        text:
+
+manage_camera:
+  name: Manage camera
+  description: Add, update, or delete a camera in the running Viewpie instance. Deletion is rejected by Viewpie while panels still use the camera.
+  fields:
+    operation:
+      required: true
+      selector:
+        select:
+          options:
+            - create
+            - update
+            - delete
+    name:
+      required: true
+      selector:
+        text:
+    url:
+      required: false
+      description: RTSP URL. Required for create and update.
+      selector:
+        text:
+    fullscreen_url:
+      required: false
+      description: Optional alternate RTSP URL for full-screen mode.
+      selector:
+        text:
+    entry_id:
+      required: false
+      advanced: true
+      selector:
+        text:
+
+test_camera:
+  name: Test camera
+  description: Test RTSP reachability for a configured camera and write the result to the integration log.
+  fields:
+    name:
+      required: true
+      selector:
+        text:
+    entry_id:
+      required: false
+      advanced: true
+      selector:
+        text:
+
+manage_panel:
+  name: Manage panel
+  description: Create, update, or delete a panel. Layout is a newline-separated grid of viewport slot IDs; viewports is a list of slot/feed mappings.
+  fields:
+    operation:
+      required: true
+      selector:
+        select:
+          options:
+            - create
+            - update
+            - delete
+    panel_id:
+      required: true
+      selector:
+        text:
+    name:
+      required: false
+      selector:
+        text:
+    layout:
+      required: false
+      selector:
+        text:
+    viewports:
+      required: false
+      description: YAML/JSON list, for example [{"slot":"a","feeds":["yard"]}]
+      selector:
+        object:
+    entry_id:
       required: false
       advanced: true
       selector:
