@@ -25,12 +25,14 @@ jobs:
       - name: Compile Python files
         run: python -m compileall -q custom_components
       - name: Run integration regression tests
-        run: pytest -q
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest -q
       - name: Validate JSON and YAML files
         run: |
           python - <<'PY'
           import json
-          from pathlib import Path
+          from pathlib import import Path
           import yaml
 
           for path in Path("custom_components").rglob("*.json"):
@@ -66,4 +68,4 @@ jobs:
           git push origin "${TAG}"
           gh release create "${TAG}" \
             --title "Viewpie Home Assistant integration ${TAG}" \
-            --notes "Stable test release. Validate on Home Assistant with the matching Viewpie fork version.";
+            --notes "Stable test release. Validate on Home Assistant with the matching Viewpie fork version."
