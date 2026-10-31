@@ -1,7 +1,7 @@
 {
   "domain": "viewpie",
   "name": "Viewpie Camera Wall",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "documentation": "https://github.com/Shnyak/home-assistant-viewpie",
   "issue_tracker": "https://github.com/Shnyak/home-assistant-viewpie/issues",
   "dependencies": [],
