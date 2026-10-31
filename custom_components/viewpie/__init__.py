@@ -56,14 +56,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     import custom_components.viewpie as vp
 
     client = vp.ViewpieApiClient(host, port, api_key)
-    await client.async_init()
-    coordinator = ViewpieCoordinator(hass, client, entry)
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await client.async_init()
+        coordinator = ViewpieCoordinator(hass, client, entry)
+        await coordinator.async_config_entry_first_refresh()
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except Exception:
+        # A failed initial refresh or platform setup must not leak the HTTP session.
+        await client.async_close()
+        raise
 
     runtime = ViewpieRuntimeData(client, coordinator)
     entry.runtime_data = runtime
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _register_services(hass)
     _LOGGER.info("Viewpie integration set up for %s:%s", host, port)
     return True
