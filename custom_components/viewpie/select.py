@@ -99,6 +99,10 @@ class ViewpieSelectBase(ViewpieEntity, RestoreEntity, SelectEntity):
         current = self.current_option
         if current is not None:
             attrs["current_option"] = current
+        # Sanitized layout metadata enables the Lovelace editor to load panels.
+        # Do not expose camera URLs or credentials through entity attributes.
+        if isinstance(self, ViewpiePanelSelect):
+            attrs["panel_details"] = self.status.get("panel_details", {})
         return attrs
 
     def _handle_coordinator_update(self) -> None:
