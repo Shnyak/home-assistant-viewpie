@@ -167,7 +167,7 @@ def _register_services(hass: HomeAssistant) -> None:
         if operation in ("create", "update"):
             missing = [key for key in ("name", "layout", "viewports") if key not in panel]
             if missing:
-                raise HomeAssistantError(f"{operation} panel requires: {", ".join(missing)}")
+                raise HomeAssistantError(f"{operation} panel requires: " + ", ".join(missing))
             if not str(panel["name"]).strip() or not str(panel["layout"]).strip():
                 raise HomeAssistantError("Panel name and layout must not be empty")
             if not isinstance(panel["viewports"], list):
