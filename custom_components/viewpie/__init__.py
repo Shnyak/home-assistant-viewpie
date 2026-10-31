@@ -150,7 +150,9 @@ def _register_services(hass: HomeAssistant) -> None:
             await refresh(coordinator)
 
     async def handle_test_camera(call: ServiceCall) -> None:
-        for coordinator in _iter_coordinators(hass, call):
+        # Testing a camera is device-specific too; don't silently test the same
+        # name on every configured Viewpie instance.
+        for coordinator in _iter_coordinators(hass, call, management=True):
             result = await coordinator.client.test_camera(call.data["name"])
             _LOGGER.info(
                 "RTSP test for camera %s: ok=%s latency_ms=%s error=%s",
