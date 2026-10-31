@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
+
+import aiohttp
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
@@ -84,7 +87,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data.get(DOMAIN):
         for service in (
             SERVICE_FULLSCREEN, SERVICE_SWITCH_PANEL, SERVICE_SET_SPACING,
-            "manage_camera", "test_camera", "manage_panel",
+            "manage_camera", "test_camera", "manage_panel", "apply_config",
         ):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
@@ -126,6 +129,54 @@ def _register_services(hass: HomeAssistant) -> None:
     async def handle_set_spacing(call: ServiceCall) -> None:
         for coordinator in _iter_coordinators(hass, call):
             await coordinator.async_update_settings(spacing=int(call.data[ATTR_SPACING]))
+
+    async def handle_apply_config(call: ServiceCall) -> None:
+        """Submit a complete YAML candidate to the authenticated Pi apply bridge."""
+        bridge_url = call.data["bridge_url"].strip().rstrip("/")
+        token = call.data["bridge_token"].strip()
+        candidate = call.data["config_yaml"]
+        parsed = urlparse(bridge_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc or parsed.query or parsed.fragment:
+            raise HomeAssistantError("bridge_url must be an absolute HTTP(S) base URL without query or fragment")
+        hostname = (parsed.hostname or "").lower()
+        is_loopback = hostname in ("localhost", "127.0.0.1", "::1")
+        if parsed.scheme != "https" and not is_loopback:
+            raise HomeAssistantError("HTTPS is required for a non-loopback apply bridge URL")
+        if not token:
+            raise HomeAssistantError("bridge_token must not be empty")
+        if not candidate.strip():
+            raise HomeAssistantError("config_yaml must not be empty")
+        if len(candidate.encode("utf-8")) > 1024 * 1024:
+            raise HomeAssistantError("config_yaml exceeds the 1 MiB limit")
+        timeout = aiohttp.ClientTimeout(total=180)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    bridge_url + "/apply",
+                    data=candidate.encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/yaml",
+                    },
+                ) as response:
+                    payload = await response.json(content_type=None)
+                    result = payload if isinstance(payload, dict) else {"output": str(payload)}
+                    status = str(result.get("status", "ERROR"))
+                    message = str(result.get("output") or result.get("message") or status)
+                    if response.status == 200 and status == "OK":
+                        _LOGGER.warning("Transactional Viewpie config apply succeeded; %s", message)
+                        return
+                    if status == "ROLLED_BACK":
+                        raise HomeAssistantError(
+                            "Viewpie rejected the new configuration and restored the previous YAML. " + message
+                        )
+                    raise HomeAssistantError(
+                        f"Transactional Viewpie apply failed ({status}, HTTP {response.status}). {message}"
+                    )
+        except HomeAssistantError:
+            raise
+        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+            raise HomeAssistantError(f"Could not reach the transactional apply bridge: {err}") from err
 
     async def handle_manage_camera(call: ServiceCall) -> None:
         operation = call.data["operation"]
@@ -212,6 +263,14 @@ def _register_services(hass: HomeAssistant) -> None:
         }),
     )
 
+    hass.services.async_register(
+        DOMAIN, "apply_config", handle_apply_config,
+        schema=vol.Schema({
+            vol.Required("bridge_url"): vol.All(cv.string, vol.Length(min=1, max=2048)),
+            vol.Required("bridge_token"): vol.All(cv.string, vol.Length(min=1, max=512)),
+            vol.Required("config_yaml"): vol.All(cv.string, vol.Length(min=1, max=1048576)),
+        }),
+    )
     hass.services.async_register(
         DOMAIN, "manage_camera", handle_manage_camera,
         schema=vol.Schema({
