@@ -34,7 +34,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       const states = Object.values(this._hass.states || {});
       const suffix = this._entryId ? `_${this._entryId}` : "";
       const panelSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_panel") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
-      const cameraSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_fullscreen_camera") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
+      const cameraSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_fullscreen") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
       this._panelSelectEntity = panelSelect?.entity_id || "";
       this._panelDetails = panelSelect?.attributes?.panel_details || {};
       this._panelOptions = panelSelect ? panelSelect.attributes.options.filter(x => x !== "Grid") : [];
@@ -195,7 +195,14 @@ class ViewpieLayoutEditor extends HTMLElement {
     this._cols = this._clamp(cols, 1, 8);
     this._cells = {};
     const viewportMap = new Map();
-    (Array.isArray(panel.viewports) ? panel.viewports : []).forEach(vp => {
+    const sourceViewports = Array.isArray(panel.viewports) ? panel.viewports : [];
+    if (sourceViewports.some(vp => Array.isArray(vp?.feeds) && vp.feeds.length > 1)) {
+      this._status = "У панели есть ячейки с несколькими потоками. Этот редактор пока не поддерживает такой формат и не загрузил раскладку, чтобы не потерять данные.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    sourceViewports.forEach(vp => {
       if (vp && vp.slot) viewportMap.set(String(vp.slot), Array.isArray(vp.feeds) ? vp.feeds[0] || "" : "");
     });
     layout.slice(0, 8).forEach((row, r) => row.slice(0, 8).forEach((slot, c) => {
