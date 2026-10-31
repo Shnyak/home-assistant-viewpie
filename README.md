@@ -19,17 +19,27 @@
 - Home Assistant ≥ 2024.1
 - Python 3.11+
 - Модифицированный viewpie с HTTP API на порту 8080
-  ([viewpie-fork](https://github.com/YOUR_USERNAME/viewpie-fork))
-- Layout Engine ([viewpie-layout-engine](https://github.com/YOUR_USERNAME/viewpie-layout-engine))
+  ([Shnyak/viewpie](https://github.com/Shnyak/viewpie)); the layout/apply bridge must be compatible with this fork.
 
 ## Установка через HACS
 
 1. HACS → Integrations → ⋮ → Custom repositories
-2. Добавить `https://github.com/YOUR_USERNAME/viewpie-ha-integration`
+2. Добавить `https://github.com/Shnyak/home-assistant-viewpie`
 3. Категория: **Integration**
 4. Установить "Viewpie Camera Wall"
 5. Перезапустить Home Assistant
 6. Настройки → Устройства и службы → Добавить интеграцию → "Viewpie"
+
+## Обновления через HACS (тестовый режим)
+
+После каждого push в `main` или тестовую ветку GitHub Actions запускает проверки. Если они проходят, workflow автоматически увеличивает PATCH-версию в `manifest.json` и публикует GitHub prerelease. Ручное копирование файлов интеграции не требуется.
+
+1. В HACS откройте страницу **Viewpie Camera Wall** и включите показ beta/pre-release версий.
+2. Обновите информацию об обновлениях в HACS.
+3. Установите доступную тестовую версию кнопкой **Update**.
+4. Перезапустите Home Assistant.
+
+Это автоматизирует публикацию и обнаружение обновлений, но установка через HACS пока требует подтверждения кнопкой **Update**.
 
 ## Установка вручную
 
