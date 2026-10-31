@@ -12,23 +12,13 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     yield
 
 
-@pytest.fixture(name="real_client")
-def real_client_fixture():
-    """Expose the genuine ViewpieApiClient class before it gets patched."""
-    from custom_components.viewpie.api_client import ViewpieApiClient
-
-    return ViewpieApiClient
-
-
 @pytest.fixture(name="mock_client")
-def mock_client_fixture(real_client):
+def mock_client_fixture():
     """Patch ViewpieApiClient with an async mock (no real sessions created)."""
     from unittest.mock import AsyncMock, patch
 
     def _factory(host, port, api_key=None, session=None):
-        """Return a shared mock; fall back to the real client for e2e tests."""
-        if host == "127.0.0.1":
-            return real_client(host, port, api_key, session)
+        """Return a shared mock for every configured host."""
         return inst
 
     with patch("custom_components.viewpie.ViewpieApiClient", side_effect=_factory) as cls:

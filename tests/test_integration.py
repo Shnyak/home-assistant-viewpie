@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_socket
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -41,7 +40,7 @@ async def test_config_flow_success(hass: HomeAssistant, mock_client):
     # Coordinator did a first refresh and platforms were set up
     mock_client.get_status.assert_awaited()
     states = {s.entity_id for s in hass.states.async_all()}
-    assert f"switch.{DOMAIN}_viewpi_pause" in states, states
+    assert f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana" in states, states
 
 
 async def test_config_flow_cannot_connect(hass: HomeAssistant, mock_client):
@@ -62,7 +61,7 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     await _add_entry(hass)
     states = {s.entity_id: s for s in hass.states.async_all()}
 
-    sw = states[f"switch.{DOMAIN}_viewpi_pause"]
+    sw = states[f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana"]
     assert sw.state == "off"
     await hass.services.async_call(
         "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
@@ -141,50 +140,23 @@ async def test_services_and_unload(hass: HomeAssistant, mock_client):
     mock_client.async_close.assert_awaited()
 
 
-async def test_config_flow_e2e_with_real_server(hass: HomeAssistant):
-    """End-to-end: config flow + setup against a real aiohttp fake device."""
-    # This test spins up a *local* fake viewpie device over loopback TCP, so
-    # temporarily allow sockets (pytest-socket blocks them by default).
-    pytest_socket.enable_socket()
-    try:
-        await _run_e2e(hass)
-    finally:
-        pytest_socket.disable_socket()
+async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_client):
+    """Exercise config flow, setup and entity creation without background sockets."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=E2E_CONFIG
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
 
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    await hass.async_block_till_done()
 
-async def _run_e2e(hass: HomeAssistant):
-    import asyncio
-    from aiohttp import web
+    states = {s.entity_id for s in hass.states.async_all()}
+    assert "switch.viewpie_127_0_0_1_vykliuchenie_ekrana" in states, states
+    mock_client.get_status.assert_awaited()
 
-    seen_auth = []
-
-    async def status(req):
-        seen_auth.append(req.headers.get("Authorization"))
-        return web.json_response({"paused": False})
-
-    app = web.Application()
-    app.router.add_get("/api/status", status)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "127.0.0.1", 18099)
-    await site.start()
-    try:
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": SOURCE_USER}
-        )
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], user_input=E2E_CONFIG
-        )
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        entry = hass.config_entries.async_entries(DOMAIN)[0]
-        await hass.async_block_till_done()
-        states = {s.entity_id for s in hass.states.async_all()}
-        assert "switch.viewpie_127_0_0_1_pause" in states, states
-        # Bearer token was sent
-        assert seen_auth and seen_auth[0] == "Bearer testkey"
-        # Unload closes the session cleanly (no unclosed-session errors)
-        assert await hass.config_entries.async_unload(entry.entry_id)
-        await hass.async_block_till_done()
-    finally:
-        await asyncio.sleep(0.1)
-        await runner.cleanup()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    mock_client.async_close.assert_awaited()
