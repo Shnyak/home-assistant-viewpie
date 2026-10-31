@@ -245,7 +245,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._render();
       return;
     }
-    const layout = String(panel.layout || "").split(/\\r?\\n/).map(row => row.trim()).filter(Boolean).map(row => row.split(/\\s+/));
+    const layout = String(panel.layout || "").split(/\r?\n/).map(row => row.trim()).filter(Boolean).map(row => row.split(/\\s+/));
     if (!layout.length || !layout[0].length) {
       this._status = "У панели неизвестный формат layout; редактирование не загружено, чтобы не испортить конфигурацию.";
       this._error = true;
@@ -309,7 +309,7 @@ class ViewpieLayoutEditor extends HTMLElement {
         operation: this._selectedPanel ? "update" : "create",
         panel_id: panelId,
         name: panelName,
-        layout: layoutRows.join("\\n"),
+        layout: layoutRows.join("\n"),
         viewports
       };
       if (this._entryId) data.entry_id = this._entryId;
