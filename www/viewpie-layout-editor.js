@@ -8,6 +8,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     this._cells = this._cells || {};
     this._panelId = "";
     this._panelName = "";
+    this._selectedPanel = "";
     this._status = "";
     this._error = false;
     this._render();
@@ -31,8 +32,11 @@ class ViewpieLayoutEditor extends HTMLElement {
     if (!this._hass) return;
     try {
       const states = Object.values(this._hass.states || {});
-      const panelSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_panel") && s.attributes.options);
-      const cameraSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_fullscreen_camera") && s.attributes.options);
+      const suffix = this._entryId ? `_${this._entryId}` : "";
+      const panelSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_panel") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
+      const cameraSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_fullscreen_camera") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
+      this._panelSelectEntity = panelSelect?.entity_id || "";
+      this._panelDetails = panelSelect?.attributes?.panel_details || {};
       this._panelOptions = panelSelect ? panelSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._cameraOptions = cameraSelect ? cameraSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._render();
@@ -86,8 +90,20 @@ class ViewpieLayoutEditor extends HTMLElement {
     card.append(this._el("h2", {}, this._config.title || "Редактор раскладки Viewpie"));
     const fields = this._el("div", { class: "fields" });
 
+    const existing = this._el("select");
+    existing.append(this._el("option", { value: "" }, "Создать новую…"));
+    (this._panelOptions || []).forEach(panelId => {
+      const option = this._el("option", { value: panelId }, panelId);
+      if (panelId === this._selectedPanel) option.selected = true;
+      existing.append(option);
+    });
+    existing.value = this._selectedPanel || "";
+    existing.addEventListener("change", () => this._loadPanelIntoEditor(existing.value));
+    fields.append(this._field("Существующая панель", existing));
+
     const id = this._el("input", { value: this._panelId, placeholder: "например, yard_day" });
     id.value = this._panelId;
+    id.disabled = Boolean(this._selectedPanel);
     id.addEventListener("input", () => { this._panelId = id.value; });
     fields.append(this._field("ID новой панели", id));
 
@@ -127,8 +143,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       "Пустые ячейки разрешены. Создание добавляет новую панель через API Viewpie; существующие панели этот первый этап не изменяет.");
     card.append(help);
     const actions = this._el("div", { class: "actions" });
-    const save = this._el("button", {}, "Создать панель");
-    save.addEventListener("click", () => this._createPanel(save));
+    const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
+    save.addEventListener("click", () => this._savePanel(save));
     actions.append(save);
     const clear = this._el("button", {}, "Очистить сетку");
     clear.style.background = "var(--secondary-text-color)";
@@ -147,8 +163,54 @@ class ViewpieLayoutEditor extends HTMLElement {
     return input;
   }
 
-  async _createPanel(button) {
-    const panelId = (this._panelId || "").trim();
+  _loadPanelIntoEditor(panelId) {
+    this._selectedPanel = panelId || "";
+    if (!panelId) {
+      this._panelId = "";
+      this._panelName = "";
+      this._cells = {};
+      this._rows = this._clamp(this._config.rows ?? 2, 1, 8);
+      this._cols = this._clamp(this._config.columns ?? 2, 1, 8);
+      this._status = "Режим создания новой панели.";
+      this._error = false;
+      this._render();
+      return;
+    }
+    const panel = this._panelDetails?.[panelId];
+    if (!panel) {
+      this._status = "Детали панели пока недоступны. Обновите страницу или проверьте API Viewpie.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    const layout = String(panel.layout || "").split(/\\r?\\n/).map(row => row.trim()).filter(Boolean).map(row => row.split(/\\s+/));
+    if (!layout.length || !layout[0].length) {
+      this._status = "У панели неизвестный формат layout; редактирование не загружено, чтобы не испортить конфигурацию.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    const cols = Math.max(...layout.map(row => row.length));
+    this._rows = this._clamp(layout.length, 1, 8);
+    this._cols = this._clamp(cols, 1, 8);
+    this._cells = {};
+    const viewportMap = new Map();
+    (Array.isArray(panel.viewports) ? panel.viewports : []).forEach(vp => {
+      if (vp && vp.slot) viewportMap.set(String(vp.slot), Array.isArray(vp.feeds) ? vp.feeds[0] || "" : "");
+    });
+    layout.slice(0, 8).forEach((row, r) => row.slice(0, 8).forEach((slot, c) => {
+      const camera = viewportMap.get(String(slot));
+      if (camera) this._cells[`${r},${c}`] = String(camera);
+    }));
+    this._panelId = panelId;
+    this._panelName = String(panel.name || panelId);
+    this._status = `Загружена панель «${this._panelName}». Проверьте ячейки перед сохранением.`;
+    this._error = false;
+    this._render();
+  }
+
+  async _savePanel(button) {
+    const panelId = this._selectedPanel || (this._panelId || "").trim();
     const panelName = (this._panelName || "").trim();
     if (!panelId || !panelName) {
       this._status = "Укажите ID и название панели.";
@@ -158,7 +220,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     }
     if (!this._hass) return;
     button.disabled = true;
-    this._status = "Создаю панель…";
+    this._status = this._selectedPanel ? "Сохраняю изменения панели…" : "Создаю панель…";
     this._error = false;
     this._render();
     try {
@@ -174,16 +236,24 @@ class ViewpieLayoutEditor extends HTMLElement {
         }
         layoutRows.push(slots.join(" "));
       }
-      const data = { operation: "create", panel_id: panelId, name: panelName, layout: layoutRows.join("\n"), viewports };
+      const data = {
+        operation: this._selectedPanel ? "update" : "create",
+        panel_id: panelId,
+        name: panelName,
+        layout: layoutRows.join("\\n"),
+        viewports
+      };
       if (this._entryId) data.entry_id = this._entryId;
       await this._hass.callService("viewpie", "manage_panel", data);
-      this._status = `Панель «${panelName}» отправлена в Viewpie. Проверьте список панелей и активируйте её.`;
+      this._status = `Панель «${panelName}» сохранена в Viewpie.`;
       this._error = false;
-      this._panelId = "";
-      this._panelName = "";
-      this._cells = {};
+      this._panelId = panelId;
+      this._selectedPanel = panelId;
+      this._panelDetails = this._panelDetails || {};
+      this._panelDetails[panelId] = { id: panelId, name: panelName, layout: data.layout, viewports };
+      this._panelOptions = [...new Set([...(this._panelOptions || []), panelId])];
     } catch (err) {
-      this._status = `Не удалось создать панель: ${err?.message || err}`;
+      this._status = `Не удалось сохранить панель: ${err?.message || err}`;
       this._error = true;
     } finally {
       this._render();
