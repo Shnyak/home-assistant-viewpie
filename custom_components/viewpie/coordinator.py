@@ -22,6 +22,17 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["panels"] = [str(p.get("id") if isinstance(p, dict) else p) for p in panels if (p.get("id") if isinstance(p, dict) else p)]
         except Exception as err:
             _LOGGER.debug("Could not refresh panel list: %s", err); data.setdefault("panels", [])
+        # Fetch full panel definitions for the visual editor. These objects contain
+        # layout/viewport metadata only; camera source URLs are not included here.
+        panel_details: dict[str, dict[str, Any]] = {}
+        for panel_id in data["panels"]:
+            try:
+                panel = await self.client.get_panel(panel_id)
+                if isinstance(panel, dict) and panel:
+                    panel_details[panel_id] = panel
+            except Exception as err:
+                _LOGGER.debug("Could not fetch panel %s details: %s", panel_id, err)
+        data["panel_details"] = panel_details
         active = data.get("active_panel")
         if active and str(active) not in data["panels"]: data["panels"].append(str(active))
         try:
