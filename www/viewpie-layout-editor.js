@@ -144,7 +144,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     }
     card.append(grid);
     const help = this._el("p", { class: "muted" },
-      "Пустые ячейки разрешены. Создание добавляет новую панель через API Viewpie; существующие панели этот первый этап не изменяет.");
+      "Пустые ячейки разрешены. Сохранение изменяет выбранную панель или создаёт новую.");
     card.append(help);
     const actions = this._el("div", { class: "actions" });
     const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
@@ -154,6 +154,12 @@ class ViewpieLayoutEditor extends HTMLElement {
     clear.style.background = "var(--secondary-text-color)";
     clear.addEventListener("click", () => { this._cells = {}; this._render(); });
     actions.append(clear);
+    if (this._selectedPanel) {
+      const remove = this._el("button", {}, "Удалить панель");
+      remove.style.background = "var(--error-color)";
+      remove.addEventListener("click", () => this._deletePanel(remove));
+      actions.append(remove);
+    }
     card.append(actions);
     const status = this._el("div", { class: `status${this._error ? " error" : ""}` }, this._status);
     card.append(status);
@@ -265,6 +271,37 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelOptions = [...new Set([...(this._panelOptions || []), panelId])];
     } catch (err) {
       this._status = `Не удалось сохранить панель: ${err?.message || err}`;
+      this._error = true;
+    } finally {
+      this._render();
+    }
+  }
+
+  async _deletePanel(button) {
+    const panelId = this._selectedPanel;
+    if (!panelId || !this._hass) return;
+    const panelName = this._panelName || panelId;
+    if (!window.confirm("Удалить панель «" + panelName + "» (" + panelId + ") из Viewpie? Это действие нельзя отменить.")) return;
+    button.disabled = true;
+    this._status = "Удаляю панель «" + panelName + "»…";
+    this._error = false;
+    this._render();
+    try {
+      const data = { operation: "delete", panel_id: panelId };
+      if (this._entryId) data.entry_id = this._entryId;
+      await this._hass.callService("viewpie", "manage_panel", data);
+      this._panelOptions = (this._panelOptions || []).filter(id => id !== panelId);
+      if (this._panelDetails) delete this._panelDetails[panelId];
+      this._selectedPanel = "";
+      this._panelId = "";
+      this._panelName = "";
+      this._cells = {};
+      this._rows = this._clamp(this._config.rows ?? 2, 1, 8);
+      this._cols = this._clamp(this._config.columns ?? 2, 1, 8);
+      this._status = "Панель «" + panelName + "» удалена.";
+      this._error = false;
+    } catch (err) {
+      this._status = "Не удалось удалить панель: " + (err?.message || err);
       this._error = true;
     } finally {
       this._render();
