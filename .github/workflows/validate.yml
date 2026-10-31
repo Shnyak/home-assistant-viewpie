@@ -40,7 +40,7 @@ jobs:
           PY
 
   publish-stable:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/camera-entities-and-management')
     needs: static-checks
     runs-on: ubuntu-latest
     permissions:
