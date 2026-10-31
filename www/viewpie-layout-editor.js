@@ -76,6 +76,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; }
       .field { display:flex; flex-direction:column; gap:5px; font-size:.9rem; }
       input, select { box-sizing:border-box; width:100%; min-width:0; padding:9px; color:var(--primary-text-color); background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:6px; }
+      select[multiple] { min-height:90px; }
       .grid { display:grid; gap:8px; margin:16px 0; }
       .cell { min-width:0; padding:8px; border:1px solid var(--divider-color); border-radius:8px; background:var(--secondary-background-color); }
       .cell small { display:block; margin-bottom:5px; color:var(--secondary-text-color); }
@@ -125,16 +126,19 @@ class ViewpieLayoutEditor extends HTMLElement {
         const key = `${r},${c}`;
         const cell = this._el("div", { class: "cell" });
         cell.append(this._el("small", {}, `Ячейка ${r + 1} × ${c + 1}`));
-        const select = this._el("select");
-        select.append(this._el("option", { value: "" }, "— пусто —"));
+        const select = this._el("select", { multiple: "multiple", size: "4" });
+        select.title = "Выберите одну или несколько камер. Ctrl/Cmd позволяет выбрать несколько.";
+        const selectedCameras = Array.isArray(this._cells[key]) ? this._cells[key] : (this._cells[key] ? [this._cells[key]] : []);
         (this._cameraOptions || []).forEach(camera => {
           const option = this._el("option", { value: camera }, camera);
-          if ((this._cells[key] || "") === camera) option.selected = true;
+          option.selected = selectedCameras.includes(camera);
           select.append(option);
         });
-        select.value = this._cells[key] || "";
-        select.addEventListener("change", () => { this._cells[key] = select.value; });
+        select.addEventListener("change", () => {
+          this._cells[key] = Array.from(select.selectedOptions).map(option => option.value);
+        });
         cell.append(select);
+        cell.append(this._el("small", {}, "Выберите несколько камер с Ctrl (Windows/Linux) или ⌘ (Mac)."));
         grid.append(cell);
       }
     }
@@ -196,18 +200,17 @@ class ViewpieLayoutEditor extends HTMLElement {
     this._cells = {};
     const viewportMap = new Map();
     const sourceViewports = Array.isArray(panel.viewports) ? panel.viewports : [];
-    if (sourceViewports.some(vp => Array.isArray(vp?.feeds) && vp.feeds.length > 1)) {
-      this._status = "У панели есть ячейки с несколькими потоками. Этот редактор пока не поддерживает такой формат и не загрузил раскладку, чтобы не потерять данные.";
-      this._error = true;
-      this._render();
-      return;
-    }
     sourceViewports.forEach(vp => {
-      if (vp && vp.slot) viewportMap.set(String(vp.slot), Array.isArray(vp.feeds) ? vp.feeds[0] || "" : "");
+      if (vp && vp.slot) {
+        const feeds = Array.isArray(vp.feeds) ? vp.feeds : [];
+        viewportMap.set(String(vp.slot), feeds.map(feed =>
+          typeof feed === "string" ? feed : (feed && typeof feed === "object" ? String(feed.name || feed.id || "") : "")
+        ).filter(Boolean));
+      }
     });
     layout.slice(0, 8).forEach((row, r) => row.slice(0, 8).forEach((slot, c) => {
       const camera = viewportMap.get(String(slot));
-      if (camera) this._cells[`${r},${c}`] = String(camera);
+      if (Array.isArray(camera) && camera.length) this._cells[`${r},${c}`] = camera;
     }));
     this._panelId = panelId;
     this._panelName = String(panel.name || panelId);
@@ -238,8 +241,9 @@ class ViewpieLayoutEditor extends HTMLElement {
         for (let c = 0; c < this._cols; c++) {
           const slot = `s${r}${c}`;
           slots.push(slot);
-          const camera = this._cells[`${r},${c}`];
-          if (camera) viewports.push({ slot, feeds: [camera] });
+          const cameras = this._cells[`${r},${c}`];
+          const feeds = Array.isArray(cameras) ? cameras.filter(Boolean) : (cameras ? [cameras] : []);
+          if (feeds.length) viewports.push({ slot, feeds });
         }
         layoutRows.push(slots.join(" "));
       }
