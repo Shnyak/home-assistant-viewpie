@@ -48,6 +48,13 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     if not editor_path.is_file():
         return True
 
+    # The HTTP integration may not be initialized in lightweight test
+    # environments. The editor resource is optional; do not block the
+    # Viewpie config-entry setup when no HTTP component is available.
+    if hass.http is None:
+        _LOGGER.debug("Skipping Viewpie editor resource registration: HTTP is unavailable")
+        return True
+
     url_path = "/viewpie/viewpie-layout-editor.js"
     if hasattr(hass.http, "async_register_static_paths"):
         from homeassistant.components.http import StaticPathConfig
