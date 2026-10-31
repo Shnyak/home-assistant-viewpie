@@ -156,13 +156,12 @@ def _register_services(hass: HomeAssistant) -> None:
                 await client.delete_panel(panel_id)
             await refresh(coordinator)
 
-    entry_field = vol.Optional(ATTR_ENTRY_ID): cv.string
     hass.services.async_register(
         DOMAIN, SERVICE_FULLSCREEN, handle_fullscreen,
         schema=vol.Schema({
             vol.Required(ATTR_CAMERA): cv.string,
             vol.Optional(ATTR_DURATION): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
-            entry_field,
+            vol.Optional(ATTR_ENTRY_ID): cv.string,
         }),
     )
     hass.services.async_register(
