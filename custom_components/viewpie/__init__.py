@@ -13,6 +13,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .api_client import ViewpieApiClient as _ViewpieApiClient
@@ -85,12 +86,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-def _iter_coordinators(hass: HomeAssistant, call: ServiceCall):
-    """Yield coordinators for all loaded entries or a single targeted entry."""
+def _iter_coordinators(hass: HomeAssistant, call: ServiceCall, *, management: bool = False):
+    """Return selected coordinators; never fan out mutations across devices."""
+    runtimes = list(hass.data.get(DOMAIN, {}).values())
     entry_id = call.data.get(ATTR_ENTRY_ID)
-    for runtime in hass.data.get(DOMAIN, {}).values():
-        if entry_id is None or runtime.coordinator.entry.entry_id == entry_id:
-            yield runtime.coordinator
+    if entry_id is not None:
+        selected = [runtime.coordinator for runtime in runtimes if runtime.coordinator.entry.entry_id == entry_id]
+        if not selected:
+            raise HomeAssistantError(f"No loaded Viewpie config entry matches entry_id {entry_id!r}")
+        return iter(selected)
+    if management and len(runtimes) > 1:
+        raise HomeAssistantError("entry_id is required for camera/panel management when multiple Viewpie devices are configured")
+    return iter(runtime.coordinator for runtime in runtimes)
 
 
 def _register_services(hass: HomeAssistant) -> None:
@@ -117,13 +124,22 @@ def _register_services(hass: HomeAssistant) -> None:
 
     async def handle_manage_camera(call: ServiceCall) -> None:
         operation = call.data["operation"]
-        name = call.data["name"]
-        for coordinator in _iter_coordinators(hass, call):
+        name = call.data["name"].strip()
+        if not name:
+            raise HomeAssistantError("Camera name must not be empty")
+        if operation in ("create", "update"):
+            url = call.data.get("url", "").strip()
+            if not url:
+                raise HomeAssistantError("url is required for camera create/update")
+        else:
+            url = ""
+        fullscreen_url = call.data.get("fullscreen_url")
+        for coordinator in _iter_coordinators(hass, call, management=True):
             client = coordinator.client
             if operation == "create":
-                await client.create_camera(name, call.data["url"], call.data.get("fullscreen_url"))
+                await client.create_camera(name, url, fullscreen_url)
             elif operation == "update":
-                await client.update_camera(name, call.data["url"], call.data.get("fullscreen_url"))
+                await client.update_camera(name, url, fullscreen_url)
             else:
                 await client.delete_camera(name)
             await refresh(coordinator)
@@ -134,19 +150,29 @@ def _register_services(hass: HomeAssistant) -> None:
             _LOGGER.info(
                 "RTSP test for camera %s: ok=%s latency_ms=%s error=%s",
                 call.data["name"], result.get("ok"), result.get("latency_ms"),
-                result.get("error"),
+                "<details omitted>" if result.get("error") else None,
             )
             await refresh(coordinator)
 
     async def handle_manage_panel(call: ServiceCall) -> None:
         operation = call.data["operation"]
-        panel_id = call.data["panel_id"]
+        panel_id = call.data["panel_id"].strip()
+        if not panel_id:
+            raise HomeAssistantError("panel_id must not be empty")
         panel = {
             key: call.data[key]
             for key in ("name", "layout", "viewports")
             if key in call.data
         }
-        for coordinator in _iter_coordinators(hass, call):
+        if operation in ("create", "update"):
+            missing = [key for key in ("name", "layout", "viewports") if key not in panel]
+            if missing:
+                raise HomeAssistantError(f"{operation} panel requires: {", ".join(missing)}")
+            if not str(panel["name"]).strip() or not str(panel["layout"]).strip():
+                raise HomeAssistantError("Panel name and layout must not be empty")
+            if not isinstance(panel["viewports"], list):
+                raise HomeAssistantError("viewports must be a list")
+        for coordinator in _iter_coordinators(hass, call, management=True):
             client = coordinator.client
             if operation == "create":
                 await client.create_panel(panel_id, panel)
