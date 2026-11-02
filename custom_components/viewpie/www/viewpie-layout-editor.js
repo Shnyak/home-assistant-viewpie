@@ -258,7 +258,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       // GET /api/panels/{id} returns { id, panel: { layout, viewports, name } }.
       const panel = response?.panel || response;
       const rows = String(panel?.layout || "").trim().split(/\r?\n/).filter(Boolean)
-        .map(row => row.trim().split(/\\s+/));
+        .map(row => row.trim().split(/\s+/));
       const viewports = Array.isArray(panel?.viewports) ? panel.viewports : [];
       for (const viewport of viewports) {
         if (!(viewport?.feeds || []).includes(camera)) continue;
@@ -362,11 +362,17 @@ class ViewpieLayoutEditor extends HTMLElement {
       for (let r = 0; r < this._rows; r++) {
         const slots = [];
         for (let c = 0; c < this._cols; c++) {
-          const slot = `s${r}${c}`;
-          slots.push(slot);
           const cameras = this._cells[`${r},${c}`];
           const feeds = Array.isArray(cameras) ? cameras.slice(0, 1).filter(Boolean) : (cameras ? [cameras] : []);
-          if (feeds.length) viewports.push({ slot, feeds });
+          if (feeds.length) {
+            const slot = `s${r}${c}`;
+            slots.push(slot);
+            viewports.push({ slot, feeds });
+          } else {
+            // Viewpie uses "." for empty cells; every named layout slot
+            // must have a corresponding viewport definition.
+            slots.push(".");
+          }
         }
         layoutRows.push(slots.join(" "));
       }
