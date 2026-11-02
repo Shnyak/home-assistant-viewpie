@@ -39,11 +39,26 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.0.8")
+        self.assertEqual(manifest["version"], "1.0.9")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
         self.assertTrue((INTEGRATION / "brand" / "icon.png").is_file())
+
+
+    def test_layout_editor_preserves_other_selected_cameras_when_replacing_one(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        # Every populated cell is serialized from its own _cells entry; only
+        # genuinely empty cells become the Viewpie "." placeholder.
+        self.assertIn('const cameras = this._cells[`${r},${c}`];', source)
+        self.assertIn('const feeds = Array.isArray(cameras) ? cameras.slice(0, 1).filter(Boolean) : (cameras ? [cameras] : []);', source)
+        self.assertIn('viewports.push({ slot, feeds });', source)
+        self.assertIn('slots.push(".");', source)
+        self.assertIn('this._cells[`${r},${c}`] = camera[0];', source)
+
+    def test_layout_editor_splits_layout_rows_on_whitespace(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn('.map(row => row.trim().split(/\\s+/))', source)
 
     def test_installed_software_version_and_build_date_sensors_are_exposed(self):
         source = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
