@@ -286,6 +286,12 @@ class ViewpieLayoutEditor extends HTMLElement {
       return;
     }
     const cols = Math.max(...layout.map(row => row.length));
+    if (layout.length !== cols || layout.some(row => row.length !== cols)) {
+      this._status = "Эта панель имеет прямоугольную или неполную сетку. Редактор поддерживает только квадратные сетки; исходная панель не изменена.";
+      this._error = true;
+      this._render();
+      return;
+    }
     this._rows = this._clamp(layout.length, 1, 8);
     this._cols = this._clamp(cols, 1, 8);
     this._cells = {};
