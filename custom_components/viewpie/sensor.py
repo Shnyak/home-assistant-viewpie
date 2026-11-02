@@ -40,6 +40,8 @@ async def async_setup_entry(
             ViewpieActiveStreamsSensor(coordinator),
             ViewpieUptimeSensor(coordinator),
             ViewpieActivePanelSensor(coordinator),
+            ViewpieSoftwareVersionSensor(coordinator),
+            ViewpieSoftwareBuildDateSensor(coordinator),
         ]
     )
 
@@ -101,3 +103,19 @@ class ViewpieActivePanelSensor(ViewpieSensorBase):
     _attr_name = "Active panel"
     _attr_icon = "mdi:view-dashboard"
     _key = "active_panel_name"
+
+
+class ViewpieSoftwareVersionSensor(ViewpieSensorBase):
+    """Installed Viewpie software version reported by the device API."""
+
+    _attr_name = "Software version"
+    _attr_icon = "mdi:package-variant"
+    _key = "software_version"
+
+
+class ViewpieSoftwareBuildDateSensor(ViewpieSensorBase):
+    """Source build date of the installed Viewpie binary, not install time."""
+
+    _attr_name = "Software build date"
+    _attr_icon = "mdi:calendar-check"
+    _key = "software_build_date"
