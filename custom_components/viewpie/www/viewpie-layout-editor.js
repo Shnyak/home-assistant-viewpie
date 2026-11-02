@@ -163,7 +163,7 @@ class ViewpieLayoutEditor extends HTMLElement {
         select.append(this._el("option", { value: "" }, "— не выбрана —"));
         const selectedCamera = Array.isArray(this._cells[key]) ? this._cells[key][0] : this._cells[key];
         (this._cameraOptions || []).forEach(camera => {
-          const option = this._el("option", { value: camera }, camera);
+          const option = this._el("option", { value: camera }, this._cameraPlacementLabel(camera));
           select.append(option);
         });
         select.value = selectedCamera || "";
@@ -249,6 +249,29 @@ class ViewpieLayoutEditor extends HTMLElement {
     const status = this._el("div", { class: `status${this._error ? " error" : ""}` }, this._status);
     card.append(status);
     root.append(style, card);
+  }
+
+  _cameraPlacementLabel(camera) {
+    const placements = [];
+    const details = this._panelDetails || {};
+    for (const [panelId, response] of Object.entries(details)) {
+      // GET /api/panels/{id} returns { id, panel: { layout, viewports, name } }.
+      const panel = response?.panel || response;
+      const rows = String(panel?.layout || "").trim().split(/\\r?\\n/).filter(Boolean)
+        .map(row => row.trim().split(/\\s+/));
+      const viewports = Array.isArray(panel?.viewports) ? panel.viewports : [];
+      for (const viewport of viewports) {
+        if (!(viewport?.feeds || []).includes(camera)) continue;
+        for (let r = 0; r < rows.length; r++) {
+          for (let col = 0; col < rows[r].length; col++) {
+            if (rows[r][col] === viewport.slot) {
+              placements.push(`${panelId} · ${r + 1}×${col + 1}`);
+            }
+          }
+        }
+      }
+    }
+    return placements.length ? `${camera} — ${placements.join(", ")}` : `${camera} — не назначена`;
   }
 
   _numberInput(value, min, max, callback) {
