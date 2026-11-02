@@ -26,15 +26,24 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("ViewpieCameraRunningBinarySensor", source)
         self.assertIn("ViewpieCameraInUseBinarySensor", source)
 
+    def test_editor_resource_registration_is_idempotent_and_storage_only(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn('resources.async_items()', source)
+        self.assertIn('resources.async_create_item({"res_type": "module", "url": url_path})', source)
+        self.assertIn('hasattr(resources, "async_create_item")', source)
+        manifest = __import__("json").loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("lovelace", manifest["dependencies"])
+        self.assertIn("http", manifest["dependencies"])
+
     def test_integration_metadata_and_branding(self):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.0.6")
+        self.assertEqual(manifest["version"], "1.0.7")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
-        self.assertTrue((INTEGRATION / "icon.svg").is_file())
+        self.assertTrue((INTEGRATION / "brand" / "icon.png").is_file())
 
 
 if __name__ == "__main__":
