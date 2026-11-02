@@ -294,7 +294,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._render();
       return;
     }
-    const panel = this._panelDetails?.[panelId];
+    const response = this._panelDetails?.[panelId];
+    const panel = response?.panel || response;
     if (!panel) {
       this._status = "Детали панели пока недоступны. Обновите страницу или проверьте API Viewpie.";
       this._error = true;
@@ -390,7 +391,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelId = panelId;
       this._selectedPanel = panelId;
       this._panelDetails = this._panelDetails || {};
-      this._panelDetails[panelId] = { id: panelId, name: panelName, layout: data.layout, viewports };
+      this._panelDetails[panelId] = { id: panelId, panel: { name: panelName, layout: data.layout, viewports } };
       this._panelOptions = [...new Set([...(this._panelOptions || []), panelId])];
     } catch (err) {
       this._status = `Не удалось сохранить панель: ${err?.message || err}`;
