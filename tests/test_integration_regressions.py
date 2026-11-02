@@ -45,6 +45,16 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertNotIn("AI-generated integration", entity)
         self.assertTrue((INTEGRATION / "brand" / "icon.png").is_file())
 
+    def test_installed_software_version_and_build_date_sensors_are_exposed(self):
+        source = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
+        self.assertIn("ViewpieSoftwareVersionSensor(coordinator)", source)
+        self.assertIn("ViewpieSoftwareBuildDateSensor(coordinator)", source)
+        self.assertIn('_key = "software_version"', source)
+        self.assertIn('_key = "software_build_date"', source)
+        entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
+        self.assertIn('status.get("software_version")', entity)
+        self.assertIn('device_info["sw_version"]', entity)
+
 
 if __name__ == "__main__":
     unittest.main()
