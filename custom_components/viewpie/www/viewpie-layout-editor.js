@@ -21,20 +21,51 @@ class ViewpieLayoutEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._loaded) {
+    const signature = this._getDataSignature(hass);
+    if (!this._loaded || signature !== this._dataSignature) {
       this._loaded = true;
+      this._dataSignature = signature;
       this._loadData();
     }
-    this._render();
   }
 
-  async _loadData() {
+  _getDataSignature(hass) {
+    const states = Object.values(hass?.states || {});
+    const panel = states.find(s =>
+      s.entity_id.startsWith("select.") &&
+      s.entity_id.endsWith("_panel") &&
+      s.attributes?.options &&
+      (!this._entryId || s.entity_id.includes(this._entryId))
+    );
+    const camera = states.find(s =>
+      s.entity_id.startsWith("select.") &&
+      s.entity_id.endsWith("_fullscreen_camera") &&
+      s.attributes?.options &&
+      (!this._entryId || s.entity_id.includes(this._entryId))
+    );
+    return JSON.stringify([
+      panel?.entity_id, panel?.state, panel?.attributes?.options,
+      panel?.attributes?.panel_details,
+      camera?.entity_id, camera?.state, camera?.attributes?.options
+    ]);
+  }
+
+  _loadData() {
     if (!this._hass) return;
     try {
       const states = Object.values(this._hass.states || {});
-      const suffix = this._entryId ? `_${this._entryId}` : "";
-      const panelSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_panel") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
-      const cameraSelect = states.find(s => s.entity_id.startsWith("select.") && s.entity_id.endsWith("_fullscreen") && s.attributes.options && (!this._entryId || s.entity_id.includes(this._entryId)));
+      const panelSelect = states.find(s =>
+        s.entity_id.startsWith("select.") &&
+        s.entity_id.endsWith("_panel") &&
+        s.attributes?.options &&
+        (!this._entryId || s.entity_id.includes(this._entryId))
+      );
+      const cameraSelect = states.find(s =>
+        s.entity_id.startsWith("select.") &&
+        s.entity_id.endsWith("_fullscreen_camera") &&
+        s.attributes?.options &&
+        (!this._entryId || s.entity_id.includes(this._entryId))
+      );
       this._panelSelectEntity = panelSelect?.entity_id || "";
       this._panelDetails = panelSelect?.attributes?.panel_details || {};
       this._panelOptions = panelSelect ? panelSelect.attributes.options.filter(x => x !== "Grid") : [];
@@ -76,7 +107,6 @@ class ViewpieLayoutEditor extends HTMLElement {
       .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; }
       .field { display:flex; flex-direction:column; gap:5px; font-size:.9rem; }
       input, select { box-sizing:border-box; width:100%; min-width:0; padding:9px; color:var(--primary-text-color); background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:6px; }
-      select[multiple] { min-height:90px; }
       .grid { display:grid; gap:8px; margin:16px 0; }
       .cell { min-width:0; padding:8px; border:1px solid var(--divider-color); border-radius:8px; background:var(--secondary-background-color); }
       .cell small { display:block; margin-bottom:5px; color:var(--secondary-text-color); }
@@ -113,10 +143,12 @@ class ViewpieLayoutEditor extends HTMLElement {
     name.addEventListener("input", () => { this._panelName = name.value; });
     fields.append(this._field("Название панели", name));
 
-    const rows = this._numberInput(this._rows, 1, 8, value => { this._rows = value; this._render(); });
-    fields.append(this._field("Строки", rows));
-    const cols = this._numberInput(this._cols, 1, 8, value => { this._cols = value; this._render(); });
-    fields.append(this._field("Столбцы", cols));
+    const size = this._numberInput(this._rows, 1, 8, value => {
+      this._rows = value;
+      this._cols = value;
+      this._render();
+    });
+    fields.append(this._field("Размер квадратной сетки", size));
     card.append(fields);
 
     const grid = this._el("div", { class: "grid" });
@@ -126,19 +158,20 @@ class ViewpieLayoutEditor extends HTMLElement {
         const key = `${r},${c}`;
         const cell = this._el("div", { class: "cell" });
         cell.append(this._el("small", {}, `Ячейка ${r + 1} × ${c + 1}`));
-        const select = this._el("select", { multiple: "multiple", size: "4" });
-        select.title = "Выберите одну или несколько камер. Ctrl/Cmd позволяет выбрать несколько.";
-        const selectedCameras = Array.isArray(this._cells[key]) ? this._cells[key] : (this._cells[key] ? [this._cells[key]] : []);
+        const select = this._el("select");
+        select.title = "Выберите одну камеру для этой ячейки. Одну и ту же камеру можно использовать в разных ячейках.";
+        select.append(this._el("option", { value: "" }, "— не выбрана —"));
+        const selectedCamera = Array.isArray(this._cells[key]) ? this._cells[key][0] : this._cells[key];
         (this._cameraOptions || []).forEach(camera => {
           const option = this._el("option", { value: camera }, camera);
-          option.selected = selectedCameras.includes(camera);
           select.append(option);
         });
+        select.value = selectedCamera || "";
         select.addEventListener("change", () => {
-          this._cells[key] = Array.from(select.selectedOptions).map(option => option.value);
+          this._cells[key] = select.value;
         });
         cell.append(select);
-        cell.append(this._el("small", {}, "Выберите несколько камер с Ctrl (Windows/Linux) или ⌘ (Mac)."));
+        cell.append(this._el("small", {}, "Одна камера на ячейку; одну камеру разрешено повторять в других ячейках."));
         grid.append(cell);
       }
     }
@@ -196,7 +229,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     }
     card.append(preview);
     const help = this._el("p", { class: "muted" },
-      "Пустые ячейки разрешены. Сохранение изменяет выбранную панель или создаёт новую.");
+      "Сетка всегда квадратная (от 1×1 до 8×8). В каждой ячейке одна камера; повторное использование камеры в других ячейках разрешено. Пустые ячейки допустимы.");
     card.append(help);
     const actions = this._el("div", { class: "actions" });
     const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
@@ -268,11 +301,14 @@ class ViewpieLayoutEditor extends HTMLElement {
     });
     layout.slice(0, 8).forEach((row, r) => row.slice(0, 8).forEach((slot, c) => {
       const camera = viewportMap.get(String(slot));
-      if (Array.isArray(camera) && camera.length) this._cells[`${r},${c}`] = camera;
+      if (Array.isArray(camera) && camera.length) this._cells[`${r},${c}`] = camera[0];
     }));
     this._panelId = panelId;
     this._panelName = String(panel.name || panelId);
-    this._status = `Загружена панель «${this._panelName}». Проверьте ячейки перед сохранением.`;
+    const hasMultiFeedCell = sourceViewports.some(vp => Array.isArray(vp?.feeds) && vp.feeds.length > 1);
+    this._status = hasMultiFeedCell
+      ? `Загружена панель «${this._panelName}». В ячейках с несколькими камерами оставлена первая; при сохранении остальные будут удалены.`
+      : `Загружена панель «${this._panelName}». Проверьте ячейки перед сохранением.`;
     this._error = false;
     this._render();
   }
@@ -300,7 +336,7 @@ class ViewpieLayoutEditor extends HTMLElement {
           const slot = `s${r}${c}`;
           slots.push(slot);
           const cameras = this._cells[`${r},${c}`];
-          const feeds = Array.isArray(cameras) ? cameras.filter(Boolean) : (cameras ? [cameras] : []);
+          const feeds = Array.isArray(cameras) ? cameras.slice(0, 1).filter(Boolean) : (cameras ? [cameras] : []);
           if (feeds.length) viewports.push({ slot, feeds });
         }
         layoutRows.push(slots.join(" "));
