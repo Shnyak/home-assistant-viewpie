@@ -43,16 +43,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Register the bundled Lovelace layout editor as a static resource."""
+    """Serve and automatically register the bundled Lovelace layout editor."""
     editor_path = Path(__file__).parent / "www" / "viewpie-layout-editor.js"
     if not editor_path.is_file():
+        _LOGGER.warning("Viewpie layout editor file is missing: %s", editor_path)
         return True
 
-    # The HTTP integration may not be initialized in lightweight test
-    # environments. The editor resource is optional; do not block the
-    # Viewpie config-entry setup when no HTTP component is available.
     if hass.http is None:
-        _LOGGER.debug("Skipping Viewpie editor resource registration: HTTP is unavailable")
+        _LOGGER.debug("Skipping Viewpie editor setup: HTTP is unavailable")
         return True
 
     url_path = "/viewpie/viewpie-layout-editor.js"
@@ -60,19 +58,36 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         from homeassistant.components.http import StaticPathConfig
 
         await hass.http.async_register_static_paths(
-            [
-                StaticPathConfig(
-                    url_path=url_path,
-                    path=str(editor_path),
-                    cache_headers=False,
-                )
-            ]
+            [StaticPathConfig(url_path=url_path, path=str(editor_path), cache_headers=False)]
         )
     else:
-        # Compatibility with Home Assistant versions before async static paths.
-        hass.http.register_static_path(
-            url_path, str(editor_path), cache_headers=False
+        hass.http.register_static_path(url_path, str(editor_path), cache_headers=False)
+
+    # YAML-mode Lovelace exposes a read-only ResourceYAMLCollection. In
+    # storage mode, add the module once and preserve every existing resource.
+    lovelace = hass.data.get("lovelace")
+    resources = getattr(lovelace, "resources", None)
+    if resources is None:
+        _LOGGER.debug("Lovelace resource collection is unavailable; editor file is served but not auto-registered")
+        return True
+
+    if not hasattr(resources, "async_create_item"):
+        _LOGGER.warning(
+            "Viewpie editor is served at %s, but Lovelace is in YAML mode. "
+            "Add it under lovelace.resources as a JavaScript module.",
+            url_path,
         )
+        return True
+
+    try:
+        existing = resources.async_items()
+        if not any(item.get("url") == url_path for item in existing):
+            await resources.async_create_item({"res_type": "module", "url": url_path})
+            _LOGGER.info("Registered Viewpie Lovelace editor resource: %s", url_path)
+        else:
+            _LOGGER.debug("Viewpie Lovelace editor resource is already registered")
+    except (HomeAssistantError, ValueError, TypeError, AttributeError):
+        _LOGGER.exception("Could not automatically register Viewpie Lovelace editor resource")
     return True
 ViewpieApiClient = _ViewpieApiClient
 
