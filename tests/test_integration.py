@@ -112,7 +112,12 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.fullscreen.assert_awaited_with("pool", None)
 
-    num = states[f"number.{DOMAIN}_viewpi_camera_spacing"]
+    spacing_entity_id = registry.async_get_entity_id(
+        "number", DOMAIN, f"{entry.entry_id}_spacing"
+    )
+    assert spacing_entity_id is not None
+    num = hass.states.get(spacing_entity_id)
+    assert num is not None
     assert float(num.state) == 1.0
     await hass.services.async_call(
         "number", "set_value",
