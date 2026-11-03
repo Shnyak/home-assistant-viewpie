@@ -48,12 +48,10 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
 
     def test_layout_editor_preserves_other_selected_cameras_when_replacing_one(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
-        # Every populated cell is serialized from its own _cells entry; only
-        # genuinely empty cells become the Viewpie "." placeholder.
-        self.assertIn('const cameras = this._cells[`${r},${c}`];', source)
-        self.assertIn('const feeds = Array.isArray(cameras) ? cameras.slice(0, 1).filter(Boolean) : (cameras ? [cameras] : []);', source)
-        self.assertIn('viewports.push({ slot, feeds });', source)
-        self.assertIn('slots.push(".");', source)
+        # Each contiguous rectangular region of one camera maps to one slot.
+        self.assertIn("_getCameraRegions()", source)
+        self.assertIn("matrix[r][c] = slot;", source)
+        self.assertIn("viewports.push({ slot, feeds: [region.camera] });", source)
         self.assertIn('this._cells[`${r},${c}`] = camera[0];', source)
 
     def test_layout_editor_splits_layout_rows_on_whitespace(self):
@@ -71,14 +69,8 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('device_info["sw_version"]', entity)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-
     def test_layout_editor_serializes_adjacent_same_camera_cells_as_one_viewport(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
-        self.assertIn("_getCameraRegions()", source)
         self.assertIn("const area = (bottom - top + 1) * (right - left + 1)", source)
         self.assertIn("matrix[r][c] = slot;", source)
         self.assertIn("viewports.push({ slot, feeds: [region.camera] });", source)
@@ -87,10 +79,8 @@ if __name__ == "__main__":
     def test_camera_management_ui_and_confirmed_delete_are_present(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("_renderCameraManager(card)", source)
-        self.assertIn('"Добавить камеру"', source)
-        self.assertIn('"Сохранить изменения"', source)
-        self.assertIn('"Проверить RTSP"', source)
-        self.assertIn('"Удалить камеру"', source)
+        for label in ('"Добавить камеру"', '"Сохранить изменения"', '"Проверить RTSP"', '"Удалить камеру"'):
+            self.assertIn(label, source)
         self.assertIn("window.confirm(", source)
         init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("await client.delete_camera(name)", init)
@@ -106,3 +96,7 @@ if __name__ == "__main__":
     def test_layout_editor_unwraps_panel_dto_before_loading(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("const panel = response?.panel || response;", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
