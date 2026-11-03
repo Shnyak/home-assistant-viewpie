@@ -144,7 +144,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data.get(DOMAIN):
         for service in (
             SERVICE_FULLSCREEN, SERVICE_SWITCH_PANEL, SERVICE_SET_SPACING,
-            "manage_camera", "test_camera", "manage_panel", "apply_config",
+            "manage_camera", "test_camera", "get_camera", "manage_panel", "apply_config",
         ):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
