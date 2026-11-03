@@ -118,6 +118,56 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     assert bfs.state == "off"
 
 
+
+async def test_panel_management_reloads_config_after_successful_write(hass: HomeAssistant, mock_client):
+    await _add_entry(hass)
+    await hass.services.async_call(
+        DOMAIN, "manage_panel",
+        {
+            "operation": "create",
+            "panel_id": "new_panel",
+            "name": "New panel",
+            "layout": "a",
+            "viewports": [{"slot": "a", "feeds": ["pool"]}],
+        },
+        blocking=True,
+    )
+    mock_client.create_panel.assert_awaited_once_with(
+        "new_panel",
+        {"name": "New panel", "layout": "a", "viewports": [{"slot": "a", "feeds": ["pool"]}]},
+    )
+    mock_client.reload_config.assert_awaited_once()
+
+
+async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: HomeAssistant, mock_client):
+    await _add_entry(hass)
+    mock_client.get_panels.return_value = [{"id": "yard"}]
+    mock_client.get_panel.return_value = {
+        "id": "yard",
+        "panel": {
+            "name": "Yard",
+            "layout": "a b\\nc d",
+            "viewports": [
+                {"slot": "a", "feeds": ["pool"]},
+                {"slot": "b", "feeds": ["yard"]},
+            ],
+        },
+    }
+    from unittest.mock import AsyncMock
+    mock_client.update_panel = AsyncMock(return_value={})
+    mock_client.delete_camera = AsyncMock(return_value={})
+    await hass.services.async_call(
+        DOMAIN, "manage_camera",
+        {"operation": "delete", "name": "pool"},
+        blocking=True,
+    )
+    updated = mock_client.update_panel.await_args.args[1]
+    assert updated["layout"] == ". b\\nc d"
+    assert updated["viewports"] == [{"slot": "b", "feeds": ["yard"]}]
+    mock_client.delete_camera.assert_awaited_once_with("pool")
+    mock_client.reload_config.assert_awaited_once()
+
+
 async def test_services_and_unload(hass: HomeAssistant, mock_client):
     entry = await _add_entry(hass)
 
