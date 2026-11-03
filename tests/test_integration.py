@@ -84,7 +84,12 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.resume.assert_awaited()
 
-    sel = states[f"select.{DOMAIN}_viewpi_panel"]
+    panel_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_panel"
+    )
+    assert panel_entity_id is not None
+    sel = hass.states.get(panel_entity_id)
+    assert sel is not None
     assert "inside" in sel.attributes["options"]
     assert sel.attributes["current_option"] == "outside"
     assert sel.state == "outside"
@@ -94,7 +99,12 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.activate_panel.assert_awaited_with("night")
 
-    fs = states[f"select.{DOMAIN}_viewpi_fullscreen_camera"]
+    fullscreen_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_fullscreen"
+    )
+    assert fullscreen_entity_id is not None
+    fs = hass.states.get(fullscreen_entity_id)
+    assert fs is not None
     assert fs.attributes["options"][0] == "Grid"
     await hass.services.async_call(
         "select", "select_option",
