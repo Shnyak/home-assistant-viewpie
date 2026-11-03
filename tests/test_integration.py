@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_USER
+from homeassistant.helpers import entity_registry as er
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -39,8 +40,12 @@ async def test_config_flow_success(hass: HomeAssistant, mock_client):
     assert entry.data[CONF_HOST] == "viewpi"
     # Coordinator did a first refresh and platforms were set up
     mock_client.get_status.assert_awaited()
-    states = {s.entity_id for s in hass.states.async_all()}
-    assert f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana" in states, states
+    registry = er.async_get(hass)
+    screen_entity_id = registry.async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_pause"
+    )
+    assert screen_entity_id is not None
+    assert hass.states.get(screen_entity_id) is not None
 
 
 async def test_config_flow_cannot_connect(hass: HomeAssistant, mock_client):
@@ -58,10 +63,15 @@ async def test_config_flow_cannot_connect(hass: HomeAssistant, mock_client):
 
 
 async def test_entities_states(hass: HomeAssistant, mock_client):
-    await _add_entry(hass)
+    entry = await _add_entry(hass)
     states = {s.entity_id: s for s in hass.states.async_all()}
+    registry = er.async_get(hass)
+    screen_entity_id = registry.async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_pause"
+    )
+    assert screen_entity_id is not None
 
-    sw = states[f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana"]
+    sw = states[screen_entity_id]
     assert sw.state == "off"
     await hass.services.async_call(
         "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
@@ -205,8 +215,12 @@ async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_clie
     entry = hass.config_entries.async_entries(DOMAIN)[0]
     await hass.async_block_till_done()
 
-    states = {s.entity_id for s in hass.states.async_all()}
-    assert "switch.viewpie_127_0_0_1_vykliuchenie_ekrana" in states, states
+    registry = er.async_get(hass)
+    screen_entity_id = registry.async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_pause"
+    )
+    assert screen_entity_id is not None
+    assert hass.states.get(screen_entity_id) is not None
     mock_client.get_status.assert_awaited()
 
     assert await hass.config_entries.async_unload(entry.entry_id)
