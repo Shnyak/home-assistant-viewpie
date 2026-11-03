@@ -144,17 +144,6 @@ async def test_panel_management_reloads_config_after_successful_write(hass: Home
 async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: HomeAssistant, mock_client):
     await _add_entry(hass)
     mock_client.get_panels.return_value = [{"id": "yard"}]
-    mock_client.get_panel.return_value = {
-        "id": "yard",
-        "panel": {
-            "name": "Yard",
-            "layout": "a b\\nc d",
-            "viewports": [
-                {"slot": "a", "feeds": ["pool"]},
-                {"slot": "b", "feeds": ["yard"]},
-            ],
-        },
-    }
     from unittest.mock import AsyncMock
     mock_client.get_panel = AsyncMock(return_value={
         "id": "yard",
