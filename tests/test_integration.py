@@ -121,6 +121,8 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
 
 async def test_panel_management_reloads_config_after_successful_write(hass: HomeAssistant, mock_client):
     await _add_entry(hass)
+    from unittest.mock import AsyncMock
+    mock_client.create_panel = AsyncMock(return_value={})
     await hass.services.async_call(
         DOMAIN, "manage_panel",
         {
@@ -154,6 +156,17 @@ async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: H
         },
     }
     from unittest.mock import AsyncMock
+    mock_client.get_panel = AsyncMock(return_value={
+        "id": "yard",
+        "panel": {
+            "name": "Yard",
+            "layout": "a b\\nc d",
+            "viewports": [
+                {"slot": "a", "feeds": ["pool"]},
+                {"slot": "b", "feeds": ["yard"]},
+            ],
+        },
+    })
     mock_client.update_panel = AsyncMock(return_value={})
     mock_client.delete_camera = AsyncMock(return_value={})
     await hass.services.async_call(
