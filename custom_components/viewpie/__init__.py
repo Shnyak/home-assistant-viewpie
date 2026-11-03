@@ -357,6 +357,18 @@ def _register_services(hass: HomeAssistant) -> None:
                 raise HomeAssistantError("viewports must be a list")
         for coordinator in _iter_coordinators(hass, call, management=True):
             client = coordinator.client
+            # Viewpie may fall back to its first panel after Reload config.
+            # Preserve the active panel across edits whenever it still exists.
+            previous_active_panel = None
+            if operation == "update":
+                try:
+                    status = await client.get_status()
+                    previous_active_panel = status.get("active_panel")
+                except Exception as err:
+                    _LOGGER.warning(
+                        "Could not read active panel before updating '%s': %s",
+                        panel_id, err,
+                    )
             if operation == "create":
                 await client.create_panel(panel_id, panel)
             elif operation == "update":
@@ -369,6 +381,20 @@ def _register_services(hass: HomeAssistant) -> None:
                 raise HomeAssistantError(
                     f"Panel '{panel_id}' was saved, but Viewpie Reload config failed: {err}"
                 ) from err
+            if operation == "update" and previous_active_panel:
+                try:
+                    available_panels = {
+                        str(item.get("id") if isinstance(item, dict) else item)
+                        for item in await client.get_panels()
+                    }
+                    if str(previous_active_panel) in available_panels:
+                        await client.activate_panel(str(previous_active_panel))
+                        await refresh(coordinator)
+                except Exception as err:
+                    _LOGGER.warning(
+                        "Panel '%s' was saved, but restoring active panel '%s' failed: %s",
+                        panel_id, previous_active_panel, err,
+                    )
 
     hass.services.async_register(
         DOMAIN, SERVICE_FULLSCREEN, handle_fullscreen,
