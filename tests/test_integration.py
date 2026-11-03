@@ -72,13 +72,15 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     assert screen_entity_id is not None
 
     sw = states[screen_entity_id]
-    assert sw.state == "off"
+    # The switch represents the physical screen: on = screen on,
+    # off = screen off (paused in the Viewpie API).
+    assert sw.state == "on"
     await hass.services.async_call(
-        "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
+        "switch", "turn_off", {"entity_id": sw.entity_id}, blocking=True
     )
     mock_client.pause.assert_awaited()
     await hass.services.async_call(
-        "switch", "turn_off", {"entity_id": sw.entity_id}, blocking=True
+        "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
     )
     mock_client.resume.assert_awaited()
 
