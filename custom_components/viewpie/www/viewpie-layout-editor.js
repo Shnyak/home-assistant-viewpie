@@ -329,6 +329,8 @@ class ViewpieLayoutEditor extends HTMLElement {
     fields.append(this._field("Выбрать камеру для изменения", existing));
     const name = this._el("input", { placeholder: "например, side_gate", value: this._cameraName || "" });
     name.value = this._cameraName || "";
+    const isExistingCamera = (this._cameraOptions || []).includes(this._cameraName);
+    name.disabled = isExistingCamera;
     name.addEventListener("input", () => { this._cameraName = name.value; });
     fields.append(this._field("Имя камеры", name));
     const url = this._el("input", { placeholder: "rtsp://user:password@192.168.1.10/stream", value: this._cameraUrl || "" });
@@ -342,6 +344,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     card.append(fields);
     const actions = this._el("div", { class: "actions" });
     const add = this._el("button", {}, "Добавить камеру");
+    add.disabled = isExistingCamera;
     add.addEventListener("click", () => this._manageCamera("create"));
     actions.append(add);
     const update = this._el("button", {}, "Сохранить изменения");
