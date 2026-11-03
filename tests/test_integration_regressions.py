@@ -29,7 +29,9 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
     def test_editor_resource_registration_is_idempotent_and_storage_only(self):
         source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn('resources.async_items()', source)
-        self.assertIn('resources.async_create_item({"res_type": "module", "url": url_path})', source)
+        self.assertIn('for _, url, label in static_paths:', source)
+        self.assertIn('resources.async_create_item({"res_type": "module", "url": url})', source)
+        self.assertIn('("viewpie-camera-manager.js", "/viewpie/viewpie-camera-manager.js", "camera manager")', source)
         self.assertIn('hasattr(resources, "async_create_item")', source)
         manifest = __import__("json").loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
         self.assertIn("lovelace", manifest["dependencies"])
