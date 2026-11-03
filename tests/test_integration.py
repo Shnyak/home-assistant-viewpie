@@ -149,7 +149,7 @@ async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: H
         "id": "yard",
         "panel": {
             "name": "Yard",
-            "layout": "a b\\nc d",
+            "layout": "a b\nc d",
             "viewports": [
                 {"slot": "a", "feeds": ["pool"]},
                 {"slot": "b", "feeds": ["yard"]},
@@ -164,7 +164,7 @@ async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: H
         blocking=True,
     )
     updated = mock_client.update_panel.await_args.args[1]
-    assert updated["layout"] == ". b\\nc d"
+    assert updated["layout"] == ". b\nc d"
     assert updated["viewports"] == [{"slot": "b", "feeds": ["yard"]}]
     mock_client.delete_camera.assert_awaited_once_with("pool")
     mock_client.reload_config.assert_awaited_once()
