@@ -16,7 +16,7 @@ import aiohttp
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
@@ -144,7 +144,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data.get(DOMAIN):
         for service in (
             SERVICE_FULLSCREEN, SERVICE_SWITCH_PANEL, SERVICE_SET_SPACING,
-            "manage_camera", "test_camera", "manage_panel", "apply_config",
+            "manage_camera", "test_camera", "get_camera", "manage_panel", "apply_config",
         ):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
@@ -249,25 +249,93 @@ def _register_services(hass: HomeAssistant) -> None:
         fullscreen_url = call.data.get("fullscreen_url")
         for coordinator in _iter_coordinators(hass, call, management=True):
             client = coordinator.client
+            changed_panels: list[tuple[str, dict[str, Any]]] = []
             if operation == "create":
                 await client.create_camera(name, url, fullscreen_url)
             elif operation == "update":
                 await client.update_camera(name, url, fullscreen_url)
             else:
-                await client.delete_camera(name)
+                # Clear every viewport using this camera before asking Viewpie
+                # to delete it. Keep originals for best-effort rollback.
+                try:
+                    for item in await client.get_panels():
+                        panel_id = str(item.get("id") if isinstance(item, dict) else item)
+                        if not panel_id:
+                            continue
+                        response = await client.get_panel(panel_id)
+                        original = response.get("panel", response) if isinstance(response, dict) else {}
+                        if not isinstance(original, dict):
+                            continue
+                        rows = [row.strip().split() for row in str(original.get("layout", "")).splitlines() if row.strip()]
+                        viewports = original.get("viewports", [])
+                        if not rows or not isinstance(viewports, list):
+                            continue
+                        removed_slots, kept_viewports = set(), []
+                        for viewport in viewports:
+                            feeds = viewport.get("feeds", []) if isinstance(viewport, dict) else []
+                            uses_camera = any(
+                                feed == name or (
+                                    isinstance(feed, dict)
+                                    and str(feed.get("name") or feed.get("id") or "") == name
+                                )
+                                for feed in feeds
+                            )
+                            if uses_camera:
+                                removed_slots.add(str(viewport.get("slot", "")))
+                            else:
+                                kept_viewports.append(viewport)
+                        if not removed_slots:
+                            continue
+                        updated = dict(original)
+                        updated["layout"] = "\n".join(
+                            " ".join("." if slot in removed_slots else slot for slot in row)
+                            for row in rows
+                        )
+                        updated["viewports"] = kept_viewports
+                        await client.update_panel(panel_id, updated)
+                        changed_panels.append((panel_id, original))
+                    await client.delete_camera(name)
+                except Exception as err:
+                    for panel_id, original in reversed(changed_panels):
+                        try:
+                            await client.update_panel(panel_id, original)
+                        except Exception:
+                            _LOGGER.exception("Could not roll back panel %s after camera deletion failure", panel_id)
+                    raise HomeAssistantError(
+                        f"Could not delete camera '{name}'. Panel changes were rolled back where possible: {err}"
+                    ) from err
+            try:
+                await client.reload_config()
+            except Exception as err:
+                raise HomeAssistantError(
+                    f"Camera '{name}' was saved, but Viewpie Reload config failed: {err}"
+                ) from err
             await refresh(coordinator)
 
-    async def handle_test_camera(call: ServiceCall) -> None:
-        # Testing a camera is device-specific too; don't silently test the same
-        # name on every configured Viewpie instance.
-        for coordinator in _iter_coordinators(hass, call, management=True):
-            result = await coordinator.client.test_camera(call.data["name"])
-            _LOGGER.info(
-                "RTSP test for camera %s: ok=%s latency_ms=%s error=%s",
-                call.data["name"], result.get("ok"), result.get("latency_ms"),
-                "<details omitted>" if result.get("error") else None,
-            )
-            await refresh(coordinator)
+    async def handle_get_camera(call: ServiceCall) -> dict[str, Any]:
+        name = call.data["name"].strip()
+        coordinator = next(_iter_coordinators(hass, call, management=True))
+        for camera in await coordinator.client.get_cameras():
+            if isinstance(camera, dict) and str(camera.get("name", "")) == name:
+                # RTSP credentials are returned only to an explicit UI request,
+                # never stored in entity state or attributes.
+                return {
+                    "name": name,
+                    "url": str(camera.get("url") or ""),
+                    "fullscreen_url": str(camera.get("fullscreen_url") or ""),
+                }
+        raise HomeAssistantError(f"Camera '{name}' was not found")
+
+    async def handle_test_camera(call: ServiceCall) -> dict[str, Any]:
+        coordinator = next(_iter_coordinators(hass, call, management=True))
+        result = await coordinator.client.test_camera(call.data["name"])
+        _LOGGER.info(
+            "RTSP test for camera %s: ok=%s latency_ms=%s error=%s",
+            call.data["name"], result.get("ok"), result.get("latency_ms"),
+            "<details omitted>" if result.get("error") else None,
+        )
+        await refresh(coordinator)
+        return result
 
     async def handle_manage_panel(call: ServiceCall) -> None:
         operation = call.data["operation"]
@@ -295,7 +363,12 @@ def _register_services(hass: HomeAssistant) -> None:
                 await client.update_panel(panel_id, panel)
             else:
                 await client.delete_panel(panel_id)
-            await refresh(coordinator)
+            try:
+                await coordinator.async_reload_config()
+            except Exception as err:
+                raise HomeAssistantError(
+                    f"Panel '{panel_id}' was saved, but Viewpie Reload config failed: {err}"
+                ) from err
 
     hass.services.async_register(
         DOMAIN, SERVICE_FULLSCREEN, handle_fullscreen,
@@ -344,6 +417,15 @@ def _register_services(hass: HomeAssistant) -> None:
             vol.Required("name"): cv.string,
             vol.Optional(ATTR_ENTRY_ID): cv.string,
         }),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, "get_camera", handle_get_camera,
+        schema=vol.Schema({
+            vol.Required("name"): cv.string,
+            vol.Optional(ATTR_ENTRY_ID): cv.string,
+        }),
+        supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(
         DOMAIN, "manage_panel", handle_manage_panel,

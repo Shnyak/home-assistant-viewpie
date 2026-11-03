@@ -54,7 +54,7 @@ set_spacing:
 
 manage_camera:
   name: Manage camera
-  description: Add, update, or delete a camera in the running Viewpie instance. Deletion is rejected by Viewpie while panels still use the camera.
+  description: Add, update, or delete a camera. On deletion, cells using it are cleared in all panels and Viewpie config is reloaded.
   fields:
     operation:
       required: true
@@ -86,7 +86,7 @@ manage_camera:
 
 test_camera:
   name: Test camera
-  description: Test RTSP reachability for a configured camera and write the result to the integration log.
+  description: Test RTSP reachability for a configured camera. The result is returned to the visual editor.
   fields:
     name:
       required: true
