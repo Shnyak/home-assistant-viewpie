@@ -74,6 +74,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("const area = (bottom - top + 1) * (right - left + 1)", source)
         self.assertIn("matrix[r][c] = slot;", source)
         self.assertIn("viewports.push({ slot, feeds: [region.camera] });", source)
+        self.assertIn('layout: matrix.map(row => row.join(" ")).join("\\n")', source)
         self.assertIn("должны образовывать один сплошной прямоугольник", source)
 
     def test_camera_management_ui_and_confirmed_delete_are_present(self):
