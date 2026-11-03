@@ -39,7 +39,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.1")
+        self.assertEqual(manifest["version"], "1.1.2")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -98,6 +98,30 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("const panel = response?.panel || response;", source)
 
+
+    def test_panel_update_restores_previously_active_panel_after_reload(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        handler = source[source.index("    async def handle_manage_panel"):source.index("    hass.services.async_register(")]
+        self.assertIn("previous_active_panel = None", handler)
+        self.assertIn("status = await client.get_status()", handler)
+        self.assertIn("await client.activate_panel(str(previous_active_panel))", handler)
+
+    def test_editor_only_allows_square_merged_regions(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("if (cells.length > 1 && height !== width)", source)
+        self.assertIn("Прямоугольные объединения запрещены", source)
+
+    def test_rotation_interval_entity_is_not_created(self):
+        source = (INTEGRATION / "number.py").read_text(encoding="utf-8")
+        setup = source[source.index("async def async_setup_entry"):source.index("class ViewpieNumberBase")]
+        self.assertNotIn("ViewpieRotationIntervalNumber(coordinator)", setup)
+
+    def test_screen_switch_uses_screen_on_semantics(self):
+        source = (INTEGRATION / "switch.py").read_text(encoding="utf-8")
+        screen = source[source.index("class ViewpiePauseSwitch"):source.index("class ViewpiePauseOffScreenSwitch")]
+        self.assertIn("return not bool(self.status.get(\"paused\", False))", screen)
+        self.assertIn("await self.coordinator.async_resume()", screen)
+        self.assertIn("await self.coordinator.async_pause()", screen)
 
 if __name__ == "__main__":
     unittest.main()
