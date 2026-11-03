@@ -543,7 +543,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       const data = {
         operation: this._selectedPanel ? "update" : "create",
         panel_id: panelId, name: panelName,
-        layout: matrix.map(row => row.join(" ")).join("\\n"), viewports
+        layout: matrix.map(row => row.join(" ")).join("\n"), viewports
       };
       if (this._entryId) data.entry_id = this._entryId;
       await this._hass.callService("viewpie", "manage_panel", data);
