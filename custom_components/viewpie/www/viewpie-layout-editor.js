@@ -189,7 +189,10 @@ class ViewpieLayoutEditor extends HTMLElement {
     preview.style.border = "1px solid var(--divider-color)";
     preview.style.borderRadius = "8px";
     preview.style.background = "var(--primary-background-color)";
-    const regions = this._getCameraRegions();
+    let regions = [];
+    this._previewError = "";
+    try { regions = this._getCameraRegions(); }
+    catch (err) { this._previewError = err.message || String(err); }
     const covered = new Set();
     for (const region of regions) {
       const previewCell = this._makePreviewCell(region.camera);
@@ -201,13 +204,19 @@ class ViewpieLayoutEditor extends HTMLElement {
     for (let r = 0; r < this._rows; r++) {
       for (let c = 0; c < this._cols; c++) {
         if (covered.has(`${r},${c}`)) continue;
-        const empty = this._makePreviewCell("");
+        const raw = this._cells[`${r},${c}`];
+        const camera = Array.isArray(raw) ? (raw[0] || "") : (raw || "");
+        const empty = this._makePreviewCell(camera);
         empty.style.gridRow = String(r + 1);
         empty.style.gridColumn = String(c + 1);
         preview.append(empty);
       }
     }
     card.append(preview);
+    if (this._previewError) {
+      const warning = this._el("p", { class: "muted error" }, this._previewError);
+      card.append(warning);
+    }
     const help = this._el("p", { class: "muted" },
       "Сетка всегда квадратная (от 1×1 до 8×8). Соседние ячейки одной камеры объединяются в один прямоугольный viewport. Пустые ячейки допустимы.");
     card.append(help);
