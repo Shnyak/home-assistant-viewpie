@@ -71,7 +71,8 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
 
     def test_layout_editor_serializes_adjacent_same_camera_cells_as_one_viewport(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
-        self.assertIn("const area = (bottom - top + 1) * (right - left + 1)", source)
+        self.assertIn("const height = bottom - top + 1", source)
+        self.assertIn("const width = right - left + 1", source)
         self.assertIn("matrix[r][c] = slot;", source)
         self.assertIn("viewports.push({ slot, feeds: [region.camera] });", source)
         self.assertIn('layout: matrix.map(row => row.join(" ")).join("\\n")', source)
