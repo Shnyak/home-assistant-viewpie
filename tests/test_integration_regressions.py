@@ -39,7 +39,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.0.10")
+        self.assertEqual(manifest["version"], "1.1.0")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -74,6 +74,34 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+
+    def test_layout_editor_serializes_adjacent_same_camera_cells_as_one_viewport(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_getCameraRegions()", source)
+        self.assertIn("const area = (bottom - top + 1) * (right - left + 1)", source)
+        self.assertIn("matrix[r][c] = slot;", source)
+        self.assertIn("viewports.push({ slot, feeds: [region.camera] });", source)
+        self.assertIn("должны образовывать один сплошной прямоугольник", source)
+
+    def test_camera_management_ui_and_confirmed_delete_are_present(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_renderCameraManager(card)", source)
+        self.assertIn('"Добавить камеру"', source)
+        self.assertIn('"Сохранить изменения"', source)
+        self.assertIn('"Проверить RTSP"', source)
+        self.assertIn('"Удалить камеру"', source)
+        self.assertIn("window.confirm(", source)
+        init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("await client.delete_camera(name)", init)
+        self.assertIn("await client.reload_config()", init)
+        self.assertIn("supports_response=SupportsResponse.ONLY", init)
+        self.assertIn("supports_response=SupportsResponse.OPTIONAL", init)
+
+    def test_panel_mutations_reload_viewpie_config(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        panel_handler = source[source.index("    async def handle_manage_panel"):source.index("    hass.services.async_register(")]
+        self.assertIn("await coordinator.async_reload_config()", panel_handler)
 
     def test_layout_editor_unwraps_panel_dto_before_loading(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
