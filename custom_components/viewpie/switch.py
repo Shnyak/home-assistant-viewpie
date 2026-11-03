@@ -52,7 +52,7 @@ class ViewpiePauseSwitch(ViewpieEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return True when the camera wall screen is off."""
+        """Return True when the camera wall screen is on."""
         return not bool(self.status.get("paused", False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
