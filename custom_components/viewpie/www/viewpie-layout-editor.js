@@ -119,6 +119,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     `;
     const card = this._el("ha-card");
     card.append(this._el("h2", {}, this._config.title || "Редактор раскладки Viewpie"));
+    this._renderCameraManager(card);
     const fields = this._el("div", { class: "fields" });
 
     const existing = this._el("select");
@@ -188,48 +189,27 @@ class ViewpieLayoutEditor extends HTMLElement {
     preview.style.border = "1px solid var(--divider-color)";
     preview.style.borderRadius = "8px";
     preview.style.background = "var(--primary-background-color)";
+    const regions = this._getCameraRegions();
+    const covered = new Set();
+    for (const region of regions) {
+      const previewCell = this._makePreviewCell(region.camera);
+      previewCell.style.gridRow = `${region.top + 1} / ${region.bottom + 2}`;
+      previewCell.style.gridColumn = `${region.left + 1} / ${region.right + 2}`;
+      preview.append(previewCell);
+      region.cells.forEach(cell => covered.add(cell));
+    }
     for (let r = 0; r < this._rows; r++) {
       for (let c = 0; c < this._cols; c++) {
-        const key = `${r},${c}`;
-        const raw = this._cells[key];
-        const cameras = (Array.isArray(raw) ? raw : (raw ? [raw] : [])).filter(Boolean);
-        const previewCell = this._el("div", { class: "preview-cell" });
-        previewCell.style.minHeight = "72px";
-        previewCell.style.minWidth = "0";
-        previewCell.style.padding = "8px";
-        previewCell.style.boxSizing = "border-box";
-        previewCell.style.border = "1px solid var(--divider-color)";
-        previewCell.style.borderRadius = "5px";
-        previewCell.style.background = "var(--card-background-color)";
-        previewCell.style.display = "flex";
-        previewCell.style.flexDirection = "column";
-        previewCell.style.justifyContent = "center";
-        previewCell.style.textAlign = "center";
-        previewCell.style.overflowWrap = "anywhere";
-        if (cameras.length) {
-          cameras.forEach(camera => {
-            const label = this._el("div", {}, camera);
-            label.style.fontSize = ".85rem";
-            label.style.padding = "2px 0";
-            previewCell.append(label);
-          });
-          if (cameras.length > 1) {
-            const count = this._el("small", {}, cameras.length + " камеры в ячейке");
-            count.style.color = "var(--secondary-text-color)";
-            previewCell.append(count);
-          }
-        } else {
-          const empty = this._el("span", {}, "Пусто");
-          empty.style.color = "var(--secondary-text-color)";
-          empty.style.fontSize = ".8rem";
-          previewCell.append(empty);
-        }
-        preview.append(previewCell);
+        if (covered.has(`${r},${c}`)) continue;
+        const empty = this._makePreviewCell("");
+        empty.style.gridRow = String(r + 1);
+        empty.style.gridColumn = String(c + 1);
+        preview.append(empty);
       }
     }
     card.append(preview);
     const help = this._el("p", { class: "muted" },
-      "Сетка всегда квадратная (от 1×1 до 8×8). В каждой ячейке одна камера; повторное использование камеры в других ячейках разрешено. Пустые ячейки допустимы.");
+      "Сетка всегда квадратная (от 1×1 до 8×8). Соседние ячейки одной камеры объединяются в один прямоугольный viewport. Пустые ячейки допустимы.");
     card.append(help);
     const actions = this._el("div", { class: "actions" });
     const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
@@ -249,6 +229,186 @@ class ViewpieLayoutEditor extends HTMLElement {
     const status = this._el("div", { class: `status${this._error ? " error" : ""}` }, this._status);
     card.append(status);
     root.append(style, card);
+  }
+
+  _makePreviewCell(camera) {
+    const cell = this._el("div", { class: "preview-cell" });
+    Object.assign(cell.style, {
+      minHeight: "72px", minWidth: "0", padding: "8px", boxSizing: "border-box",
+      border: "1px solid var(--divider-color)", borderRadius: "5px",
+      background: "var(--card-background-color)", display: "flex",
+      flexDirection: "column", justifyContent: "center", textAlign: "center",
+      overflowWrap: "anywhere"
+    });
+    const label = this._el(camera ? "strong" : "span", {}, camera || "Пусто");
+    label.style.fontSize = ".85rem";
+    if (!camera) label.style.color = "var(--secondary-text-color)";
+    cell.append(label);
+    return cell;
+  }
+
+  _getCameraRegions() {
+    const values = Array.from({ length: this._rows }, (_, r) =>
+      Array.from({ length: this._cols }, (_, c) => {
+        const value = this._cells[`${r},${c}`];
+        return Array.isArray(value) ? (value[0] || "") : (value || "");
+      })
+    );
+    const visited = new Set();
+    const regions = [];
+    for (let r = 0; r < this._rows; r++) for (let c = 0; c < this._cols; c++) {
+      const camera = values[r][c], key = `${r},${c}`;
+      if (!camera || visited.has(key)) continue;
+      const queue = [[r, c]], cells = [];
+      visited.add(key);
+      while (queue.length) {
+        const [y, x] = queue.shift();
+        cells.push(`${y},${x}`);
+        for (const [ny, nx] of [[y-1,x],[y+1,x],[y,x-1],[y,x+1]]) {
+          const next = `${ny},${nx}`;
+          if (ny >= 0 && ny < this._rows && nx >= 0 && nx < this._cols &&
+              values[ny][nx] === camera && !visited.has(next)) {
+            visited.add(next); queue.push([ny, nx]);
+          }
+        }
+      }
+      const coords = cells.map(value => value.split(",").map(Number));
+      const top = Math.min(...coords.map(v => v[0]));
+      const bottom = Math.max(...coords.map(v => v[0]));
+      const left = Math.min(...coords.map(v => v[1]));
+      const right = Math.max(...coords.map(v => v[1]));
+      const area = (bottom - top + 1) * (right - left + 1);
+      if (area !== cells.length) {
+        throw new Error(`Ячейки камеры «${camera}» должны образовывать один сплошной прямоугольник. Исправьте Г-образную или разорванную область.`);
+      }
+      regions.push({ camera, cells, top, bottom, left, right });
+    }
+    return regions;
+  }
+
+  _renderCameraManager(card) {
+    const title = this._el("h3", {}, "Управление камерами");
+    title.style.margin = "18px 0 8px";
+    card.append(title);
+    const fields = this._el("div", { class: "fields" });
+    const existing = this._el("select");
+    existing.append(this._el("option", { value: "" }, "Новая камера…"));
+    (this._cameraOptions || []).forEach(name => existing.append(this._el("option", { value: name }, name)));
+    existing.value = this._cameraName || "";
+    existing.addEventListener("change", async () => {
+      this._cameraName = existing.value;
+      this._cameraUrl = "";
+      this._cameraFullscreenUrl = "";
+      if (this._cameraName) {
+        try {
+          const data = { name: this._cameraName };
+          if (this._entryId) data.entry_id = this._entryId;
+          const result = await this._hass.callWS({
+            type: "call_service", domain: "viewpie", service: "get_camera",
+            service_data: data, return_response: true
+          });
+          const camera = result?.response || result;
+          this._cameraUrl = camera?.url || "";
+          this._cameraFullscreenUrl = camera?.fullscreen_url || "";
+        } catch (err) {
+          this._status = "Не удалось загрузить параметры камеры: " + (err?.message || err);
+          this._error = true;
+        }
+      }
+      this._render();
+    });
+    fields.append(this._field("Выбрать камеру для изменения", existing));
+    const name = this._el("input", { placeholder: "например, side_gate", value: this._cameraName || "" });
+    name.value = this._cameraName || "";
+    name.addEventListener("input", () => { this._cameraName = name.value; });
+    fields.append(this._field("Имя камеры", name));
+    const url = this._el("input", { placeholder: "rtsp://user:password@192.168.1.10/stream", value: this._cameraUrl || "" });
+    url.value = this._cameraUrl || "";
+    url.addEventListener("input", () => { this._cameraUrl = url.value; });
+    fields.append(this._field("RTSP URL", url));
+    const full = this._el("input", { placeholder: "Необязательно", value: this._cameraFullscreenUrl || "" });
+    full.value = this._cameraFullscreenUrl || "";
+    full.addEventListener("input", () => { this._cameraFullscreenUrl = full.value; });
+    fields.append(this._field("RTSP URL для fullscreen", full));
+    card.append(fields);
+    const actions = this._el("div", { class: "actions" });
+    const add = this._el("button", {}, "Добавить камеру");
+    add.addEventListener("click", () => this._manageCamera("create"));
+    actions.append(add);
+    const update = this._el("button", {}, "Сохранить изменения");
+    update.style.background = "var(--secondary-text-color)";
+    update.addEventListener("click", () => this._manageCamera("update"));
+    update.disabled = !(this._cameraOptions || []).includes(this._cameraName);
+    actions.append(update);
+    const test = this._el("button", {}, "Проверить RTSP");
+    test.style.background = "var(--secondary-text-color)";
+    test.addEventListener("click", () => this._manageCamera("test"));
+    test.disabled = !(this._cameraOptions || []).includes(this._cameraName);
+    actions.append(test);
+    const remove = this._el("button", {}, "Удалить камеру");
+    remove.style.background = "var(--error-color)";
+    remove.addEventListener("click", () => this._manageCamera("delete"));
+    remove.disabled = !(this._cameraOptions || []).includes(this._cameraName);
+    actions.append(remove);
+    card.append(actions);
+  }
+
+  async _manageCamera(operation) {
+    const name = (this._cameraName || "").trim();
+    if (!name || !this._hass) {
+      this._status = "Укажите имя камеры.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    if (operation === "delete" && !window.confirm(
+      `Удалить камеру «${name}»? Если она используется в панелях, соответствующие ячейки станут пустыми (.).`
+    )) return;
+    if (operation !== "test" && operation !== "delete" && !(this._cameraUrl || "").trim()) {
+      this._status = "Укажите RTSP URL камеры.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    this._status = operation === "test" ? "Проверяю RTSP…" : "Выполняю операцию с камерой…";
+    this._error = false;
+    this._render();
+    try {
+      const data = { name };
+      if (this._entryId) data.entry_id = this._entryId;
+      if (operation === "test") {
+        const result = await this._hass.callWS({
+          type: "call_service", domain: "viewpie", service: "test_camera",
+          service_data: data, return_response: true
+        });
+        const resultData = result?.response || result || {};
+        this._status = resultData.ok
+          ? `RTSP доступен. Задержка: ${resultData.latency_ms ?? "—"} мс.`
+          : `RTSP недоступен: ${resultData.error || "Viewpie не подтвердил соединение"}`;
+        this._error = !resultData.ok;
+      } else {
+        data.operation = operation;
+        if (operation !== "delete") {
+          data.url = this._cameraUrl.trim();
+          data.fullscreen_url = this._cameraFullscreenUrl || "";
+        }
+        await this._hass.callService("viewpie", "manage_camera", data);
+        if (operation === "delete") {
+          this._cameraOptions = (this._cameraOptions || []).filter(item => item !== name);
+          for (const key of Object.keys(this._cells || {})) if (this._cells[key] === name) this._cells[key] = "";
+          this._cameraName = ""; this._cameraUrl = ""; this._cameraFullscreenUrl = "";
+          this._status = `Камера «${name}» удалена. Использовавшиеся ячейки панелей очищены, Reload config выполнен.`;
+        } else {
+          this._cameraOptions = [...new Set([...(this._cameraOptions || []), name])];
+          this._status = operation === "create" ? `Камера «${name}» добавлена.` : `Камера «${name}» обновлена.`;
+        }
+        this._error = false;
+      }
+    } catch (err) {
+      this._status = `Операция с камерой не выполнена: ${err?.message || err}`;
+      this._error = true;
+    }
+    this._render();
   }
 
   _cameraPlacementLabel(camera) {
@@ -348,57 +508,43 @@ class ViewpieLayoutEditor extends HTMLElement {
     const panelName = (this._panelName || "").trim();
     if (!panelId || !panelName) {
       this._status = "Укажите ID и название панели.";
-      this._error = true;
-      this._render();
-      return;
+      this._error = true; this._render(); return;
     }
     if (!this._hass) return;
+    let regions;
+    try { regions = this._getCameraRegions(); }
+    catch (err) { this._status = err.message || String(err); this._error = true; this._render(); return; }
     button.disabled = true;
     this._status = this._selectedPanel ? "Сохраняю изменения панели…" : "Создаю панель…";
-    this._error = false;
-    this._render();
+    this._error = false; this._render();
     try {
-      const layoutRows = [];
+      const matrix = Array.from({ length: this._rows }, () => Array(this._cols).fill("."));
       const viewports = [];
-      for (let r = 0; r < this._rows; r++) {
-        const slots = [];
-        for (let c = 0; c < this._cols; c++) {
-          const cameras = this._cells[`${r},${c}`];
-          const feeds = Array.isArray(cameras) ? cameras.slice(0, 1).filter(Boolean) : (cameras ? [cameras] : []);
-          if (feeds.length) {
-            const slot = `s${r}${c}`;
-            slots.push(slot);
-            viewports.push({ slot, feeds });
-          } else {
-            // Viewpie uses "." for empty cells; every named layout slot
-            // must have a corresponding viewport definition.
-            slots.push(".");
-          }
-        }
-        layoutRows.push(slots.join(" "));
-      }
+      regions.forEach((region, index) => {
+        const slot = `s${index}`;
+        region.cells.forEach(cell => {
+          const [r, c] = cell.split(",").map(Number);
+          matrix[r][c] = slot;
+        });
+        viewports.push({ slot, feeds: [region.camera] });
+      });
       const data = {
         operation: this._selectedPanel ? "update" : "create",
-        panel_id: panelId,
-        name: panelName,
-        layout: layoutRows.join("\n"),
-        viewports
+        panel_id: panelId, name: panelName,
+        layout: matrix.map(row => row.join(" ")).join("\\n"), viewports
       };
       if (this._entryId) data.entry_id = this._entryId;
       await this._hass.callService("viewpie", "manage_panel", data);
-      this._status = `Панель «${panelName}» сохранена в Viewpie.`;
+      this._status = `Панель «${panelName}» сохранена. Reload config выполнен.`;
       this._error = false;
-      this._panelId = panelId;
-      this._selectedPanel = panelId;
+      this._panelId = panelId; this._selectedPanel = panelId;
       this._panelDetails = this._panelDetails || {};
       this._panelDetails[panelId] = { id: panelId, panel: { name: panelName, layout: data.layout, viewports } };
       this._panelOptions = [...new Set([...(this._panelOptions || []), panelId])];
     } catch (err) {
       this._status = `Не удалось сохранить панель: ${err?.message || err}`;
       this._error = true;
-    } finally {
-      this._render();
-    }
+    } finally { this._render(); }
   }
 
   async _deletePanel(button) {
