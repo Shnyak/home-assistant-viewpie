@@ -417,7 +417,7 @@ def _register_services(hass: HomeAssistant) -> None:
             vol.Required("name"): cv.string,
             vol.Optional(ATTR_ENTRY_ID): cv.string,
         }),
-        supports_response=SupportsResponse.ONLY,
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN, "get_camera", handle_get_camera,
