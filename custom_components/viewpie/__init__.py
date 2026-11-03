@@ -287,7 +287,7 @@ def _register_services(hass: HomeAssistant) -> None:
                         if not removed_slots:
                             continue
                         updated = dict(original)
-                        updated["layout"] = "\\n".join(
+                        updated["layout"] = "\n".join(
                             " ".join("." if slot in removed_slots else slot for slot in row)
                             for row in rows
                         )
