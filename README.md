@@ -1,7 +1,7 @@
 # Viewpie Camera Wall — интеграция для Home Assistant
 
 <p align="center">
-  <img src="custom_components/viewpie/brand/icon.png" alt="Viewpie Camera Wall" width="220">
+  <img src="https://raw.githubusercontent.com/Shnyak/home-assistant-viewpie/v1.1.8/custom_components/viewpie/brand/icon.png" alt="Viewpie Camera Wall" width="220">
 </p>
 
 Управляйте видеостеной Viewpie из Home Assistant: переключайте панели, выводите камеры на весь экран, настраивайте параметры отображения и редактируйте камеры и раскладки прямо из Lovelace.
