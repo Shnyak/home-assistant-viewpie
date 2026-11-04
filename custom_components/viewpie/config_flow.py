@@ -132,7 +132,3 @@ class ViewpieOptionsFlow(config_entries.OptionsFlow):
             }),
         )
 
-
-@staticmethod
-def async_get_options_flow(config_entry: ConfigEntry):
-    return ViewpieOptionsFlow(config_entry)
