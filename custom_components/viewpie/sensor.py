@@ -37,6 +37,8 @@ async def async_setup_entry(
     async_add_entities(
         [
             ViewpieCpuTempSensor(coordinator),
+            ViewpieCpuLoadSensor(coordinator),
+            ViewpieLoadAverageSensor(coordinator),
             ViewpieActiveStreamsSensor(coordinator),
             ViewpieUptimeSensor(coordinator),
             ViewpieActivePanelSensor(coordinator),
@@ -73,6 +75,27 @@ class ViewpieCpuTempSensor(ViewpieSensorBase):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _key = "cpu_temp_c"
+
+
+class ViewpieCpuLoadSensor(ViewpieSensorBase):
+    """CPU busy percentage on the Raspberry Pi."""
+
+    _attr_name = "CPU usage"
+    _attr_icon = "mdi:cpu-64-bit"
+    _attr_native_unit_of_measurement = "%"
+    _attr_suggested_display_precision = 1
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _key = "cpu_load_percent"
+
+
+class ViewpieLoadAverageSensor(ViewpieSensorBase):
+    """One-minute Linux load average."""
+
+    _attr_name = "Load average (1m)"
+    _attr_icon = "mdi:chart-line"
+    _attr_suggested_display_precision = 2
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _key = "load_average_1m"
 
 
 class ViewpieActiveStreamsSensor(ViewpieSensorBase):

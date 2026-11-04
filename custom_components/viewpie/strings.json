@@ -18,5 +18,16 @@
     "abort": {
       "already_configured": "Device is already configured"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Viewpie host restart",
+        "description": "Set the secret token configured in the Viewpie service environment.",
+        "data": {
+          "restart_token": "Restart token"
+        }
+      }
+    }
   }
 }

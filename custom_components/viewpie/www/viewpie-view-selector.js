@@ -8,6 +8,7 @@ class ViewpieViewSelector extends HTMLElement {
     this._cameras = [];
     this._panelEntity = null;
     this._fullscreenEntity = null;
+    this._screenEntity = null;
     this._busy = false;
     this._status = "";
     this._refreshing = false;
@@ -22,15 +23,22 @@ class ViewpieViewSelector extends HTMLElement {
       s.entity_id.endsWith("_fullscreen_camera") && Array.isArray(s.attributes?.options) && matchesEntry(s));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.entity_id.endsWith("_panel") && Array.isArray(s.attributes?.options) && matchesEntry(s));
+    const screenMatches = states.filter(s => s.entity_id.startsWith("switch.") &&
+      String(s.attributes?.friendly_name || "").trim().toLowerCase() === "экран" && matchesEntry(s));
+    const screen = screenMatches[0] || (screenMatches.length === 0
+      ? states.find(s => s.entity_id.startsWith("switch.") &&
+        String(s.attributes?.friendly_name || "").trim().toLowerCase() === "экран")
+      : null);
     const signature = JSON.stringify([
       fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
       panel?.entity_id, panel?.attributes?.options, panel?.state,
-      panel?.attributes?.panel_details
+      panel?.attributes?.panel_details, screen?.entity_id, screen?.state
     ]);
     if (signature !== this._signature) {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
       this._panelEntity = panel || null;
+      this._screenEntity = screen || null;
       this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
       this._panels = panel ? panel.attributes.options : [];
@@ -70,6 +78,25 @@ class ViewpieViewSelector extends HTMLElement {
       entity_id: entity.entity_id,
       option
     });
+  }
+
+  async _toggleScreen() {
+    if (this._busy || !this._hass || !this._screenEntity) return;
+    this._busy = true;
+    const turnOn = this._screenEntity.state !== "on";
+    this._status = turnOn ? "Включаю экран…" : "Выключаю экран…";
+    this._render();
+    try {
+      await this._hass.callService("switch", turnOn ? "turn_on" : "turn_off", {
+        entity_id: this._screenEntity.entity_id
+      });
+      this._status = turnOn ? "Экран включён." : "Экран выключен.";
+    } catch (err) {
+      this._status = "Не удалось переключить экран: " + (err?.message || err);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
   }
 
   async _choosePanel(panelId) {
@@ -134,6 +161,7 @@ class ViewpieViewSelector extends HTMLElement {
       :host{display:block}ha-card{padding:16px}
       h2{font-size:1.2rem;margin:0 0 14px}
       h3{font-size:1rem;margin:18px 0 9px}
+      .screen-control{margin:0 0 16px}
       .choice-list{display:flex;flex-direction:column;gap:7px}
       .choice-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
         padding:8px 10px;border:1px solid var(--divider-color);border-radius:9px}
@@ -151,6 +179,16 @@ class ViewpieViewSelector extends HTMLElement {
     `;
     const card = this._el("ha-card");
     card.append(this._el("h2", {}, this._config.title || "Viewpie — выбор отображения"));
+    const screenRow = this._el("div", {class: "choice-row screen-control"});
+    screenRow.append(this._el("span", {class: "choice-label"}, "Экран"));
+    const screenOn = this._screenEntity?.state === "on";
+    const screenButton = this._el("button", {class: screenOn ? "active" : ""},
+      this._screenEntity ? (screenOn ? "Включён" : "Выключен") : "Сущность не найдена");
+    screenButton.disabled = this._busy || !this._screenEntity || this._screenEntity.state === "unavailable";
+    screenButton.setAttribute("aria-pressed", String(screenOn));
+    screenButton.addEventListener("click", () => this._toggleScreen());
+    screenRow.append(screenButton);
+    card.append(screenRow);
     card.append(this._el("h3", {}, "Панели"));
     const panels = this._el("div", {class: "choice-list"});
     const activePanel = this._activePanel();

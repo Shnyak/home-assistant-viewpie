@@ -12,6 +12,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.data_entry_flow import FlowResult
 
 # Imported via the package ``__init__`` so that patching the module-level
@@ -20,6 +21,7 @@ from homeassistant.data_entry_flow import FlowResult
 from . import ViewpieApiClient
 from .const import (
     CONF_API_KEY,
+    CONF_RESTART_TOKEN,
     CONF_HOST,
     CONF_PORT,
     DEFAULT_PORT,
@@ -105,3 +107,32 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
+
+    
+    @staticmethod
+    def async_get_options_flow(config_entry: ConfigEntry):
+        return ViewpieOptionsFlow(config_entry)
+
+
+class ViewpieOptionsFlow(config_entries.OptionsFlow):
+    """Configure the dedicated token used only for the host reboot action."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+        current = self.config_entry.options.get(
+            CONF_RESTART_TOKEN,
+            self.config_entry.data.get(CONF_RESTART_TOKEN, ""),
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_RESTART_TOKEN, default=current): str,
+            }),
+        )
+
