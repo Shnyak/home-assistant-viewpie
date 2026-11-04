@@ -51,8 +51,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Publish stable GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,12 +58,7 @@ jobs:
           set -euo pipefail
           VERSION="$(python -c 'import json; print(json.load(open("custom_components/viewpie/manifest.json"))["version"])')"
           TAG="v${VERSION}"
-          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists; refusing to overwrite it."
-            exit 1
-          fi
-          git tag "${TAG}"
-          git push origin "${TAG}"
           gh release create "${TAG}" \
+            --target "${GITHUB_SHA}" \
             --title "Viewpie Home Assistant integration ${TAG}" \
             --notes "Stable test release. Validate on Home Assistant with the matching Viewpie fork version."
