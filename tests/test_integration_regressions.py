@@ -43,7 +43,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.7")
+        self.assertEqual(manifest["version"], "1.1.8")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
