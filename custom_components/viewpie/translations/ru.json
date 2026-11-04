@@ -18,5 +18,16 @@
     "abort": {
       "already_configured": "Устройство уже настроено"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Перезагрузка Viewpie",
+        "description": "Укажите секретный токен, настроенный в окружении службы Viewpie.",
+        "data": {
+          "restart_token": "Токен перезагрузки"
+        }
+      }
+    }
   }
 }
