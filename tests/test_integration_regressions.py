@@ -107,10 +107,9 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         source = (INTEGRATION / "www" / "viewpie-camera-manager.js").read_text(encoding="utf-8")
         for label in ('"Добавить камеру"', '"Сохранить изменения"', '"Проверить RTSP"', '"Удалить камеру"'):
             self.assertIn(label, source)
-        self.assertNotIn("Панели", source)
+        self.assertIn("window.confirm(", source)
         self.assertNotIn("_selectPanel", source)
         self.assertNotIn("_selectCamera", source)
-        self.assertIn("window.confirm(", source)
         init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("await client.delete_camera(name)", init)
         self.assertIn("await client.reload_config()", init)

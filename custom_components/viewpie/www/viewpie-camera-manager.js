@@ -7,6 +7,9 @@ class ViewpieCameraManager extends HTMLElement {
     this._cameraUrl = "";
     this._cameraFullscreenUrl = "";
     this._cameraOptions = [];
+    this._panelOptions = [];
+    this._fullscreenEntity = null;
+    this._panelEntity = null;
     this._status = "";
     this._error = false;
     this._render();
@@ -18,10 +21,18 @@ class ViewpieCameraManager extends HTMLElement {
     const matchesEntry = s => !this._entryId || s.entity_id.includes(this._entryId);
     const fullscreen = states.find(s => s.entity_id.startsWith("select.") &&
       s.entity_id.endsWith("_fullscreen_camera") && s.attributes?.options && matchesEntry(s));
-    const signature = JSON.stringify([fullscreen?.entity_id, fullscreen?.attributes?.options]);
+    const panel = states.find(s => s.entity_id.startsWith("select.") &&
+      s.entity_id.endsWith("_panel") && s.attributes?.options && matchesEntry(s));
+    const signature = JSON.stringify([
+      fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
+      panel?.entity_id, panel?.attributes?.options, panel?.state
+    ]);
     if (signature !== this._signature) {
       this._signature = signature;
+      this._fullscreenEntity = fullscreen || null;
+      this._panelEntity = panel || null;
       this._cameraOptions = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
+      this._panelOptions = panel ? panel.attributes.options : [];
       if (this._cameraName && !this._cameraOptions.includes(this._cameraName)) {
         this._cameraName = "";
         this._cameraUrl = "";
@@ -62,10 +73,40 @@ class ViewpieCameraManager extends HTMLElement {
       button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
       .muted{color:var(--secondary-text-color);font-size:.85rem}.status{margin-top:12px;white-space:pre-wrap}
       .error{color:var(--error-color)}.camera-list{margin:12px 0;padding-left:20px}
+      .control-section{margin:16px 0}.control-section h3{font-size:1rem;margin:0 0 8px}
+      .choice-grid{display:flex;flex-wrap:wrap;gap:8px}
+      button.choice{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}
+      button.choice.active{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}
+      button.choice:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
     `;
     const card=this._el("ha-card");
     card.append(this._el("h2",{},this._config.title || "Управление камерами Viewpie"));
     card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменения применяются командой Reload config."));
+    const controls=this._el("div",{class:"control-section"});
+    controls.append(this._el("h3",{},"Панели"));
+    const panelButtons=this._el("div",{class:"choice-grid"});
+    const fullscreenActive=this._fullscreenEntity && this._fullscreenEntity.state !== "Grid";
+    this._panelOptions.forEach(panelId=>{
+      const button=this._el("button",{class:"choice"+(!fullscreenActive && this._panelEntity?.state===panelId?" active":"")},panelId);
+      button.setAttribute("aria-pressed",String(!fullscreenActive && this._panelEntity?.state===panelId));
+      button.addEventListener("click",()=>this._selectPanel(panelId));
+      panelButtons.append(button);
+    });
+    if(!this._panelOptions.length) panelButtons.append(this._el("span",{class:"muted"},"Панели пока не найдены."));
+    controls.append(panelButtons);
+    controls.append(this._el("h3",{},"Полноэкранный режим"));
+    const cameraButtons=this._el("div",{class:"choice-grid"});
+    this._cameraOptions.forEach(name=>{
+      const active=this._fullscreenEntity?.state===name;
+      const button=this._el("button",{class:"choice"+(active?" active":"")},name);
+      button.setAttribute("aria-pressed",String(!!active));
+      button.addEventListener("click",()=>this._selectCamera(name,active));
+      cameraButtons.append(button);
+    });
+    if(!this._cameraOptions.length) cameraButtons.append(this._el("span",{class:"muted"},"Камеры пока не найдены."));
+    controls.append(cameraButtons);
+    card.append(controls);
+
     const fields=this._el("div",{class:"fields"});
     const select=this._el("select");
     select.append(this._el("option",{value:""},"Новая камера — добавить"));
@@ -116,6 +157,34 @@ class ViewpieCameraManager extends HTMLElement {
     card.append(actions);
     card.append(this._el("div",{class:"status"+(this._error?" error":"")},this._status));
     root.append(style,card);
+  }
+
+  async _selectPanel(panelId) {
+    if(!this._hass || !this._panelEntity) return;
+    this._status="Переключаю панель…";this._error=false;this._render();
+    try{
+      // Clear fullscreen first so exactly one display choice is active.
+      await this._hass.callService("select","select_option",{
+        entity_id:this._fullscreenEntity.entity_id,option:"Grid"
+      });
+      await this._hass.callService("select","select_option",{
+        entity_id:this._panelEntity.entity_id,option:panelId
+      });
+      this._status="Активна панель: "+panelId;
+    }catch(err){this._status="Не удалось переключить панель: "+(err?.message||err);this._error=true;}
+    this._render();
+  }
+
+  async _selectCamera(camera,active) {
+    if(!this._hass || !this._fullscreenEntity) return;
+    this._status=active?"Возвращаюсь к панели…":"Включаю полноэкранный режим…";this._error=false;this._render();
+    try{
+      await this._hass.callService("select","select_option",{
+        entity_id:this._fullscreenEntity.entity_id,option:active?"Grid":camera
+      });
+      this._status=active?"Полноэкранный режим выключен":"Полноэкранная камера: "+camera;
+    }catch(err){this._status="Не удалось переключить камеру: "+(err?.message||err);this._error=true;}
+    this._render();
   }
 
   async _manage(operation) {
