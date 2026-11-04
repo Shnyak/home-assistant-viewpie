@@ -56,7 +56,7 @@ title: Управление камерами Viewpie
 ```yaml
 lovelace:
   resources:
-    - url: /viewpie/viewpie-layout-editor.js
+    - url: /viewpie/viewpie-card-editor.js\n      type: module\n    - url: /viewpie/viewpie-layout-editor.js
       type: module
     - url: /viewpie/viewpie-camera-manager.js
       type: module
@@ -153,6 +153,12 @@ lovelace:
 | `viewpie.manage_camera` | Добавить, изменить или удалить камеру |
 | `viewpie.test_camera` | Проверить RTSP-подключение камеры |
 | `viewpie.manage_panel` | Создать, изменить или удалить панель |
+
+### Добавление карточек через визуальный интерфейс
+
+В режиме Lovelace Storage откройте dashboard, нажмите **Изменить панель → Добавить карточку** и выберите одну из карточек в разделе Viewpie: **Выбор отображения**, **Управление раскладкой** или **Управление камерами**. Карточка добавляется без ручного YAML. В редакторе карточки можно изменить заголовок и, при необходимости, указать `entry_id` (если настроено несколько устройств Viewpie). Для редактора раскладки также доступны начальные значения строк и столбцов.
+
+Интеграция автоматически регистрирует общий визуальный редактор и три карточки в Lovelace Storage. В YAML-режиме ресурсы подключаются вручную; добавьте четыре JavaScript-ресурса, включая `/viewpie/viewpie-card-editor.js`.
 
 ### Пример: вывести камеру на весь экран
 
