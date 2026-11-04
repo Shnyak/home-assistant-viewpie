@@ -124,7 +124,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     const existing = this._el("select");
     existing.append(this._el("option", { value: "" }, "Создать новую…"));
     (this._panelOptions || []).forEach(panelId => {
-      const option = this._el("option", { value: panelId }, panelId);
+      const option = this._el("option", { value: panelId }, this._panelLabel(panelId));
       if (panelId === this._selectedPanel) option.selected = true;
       existing.append(option);
     });
@@ -132,16 +132,20 @@ class ViewpieLayoutEditor extends HTMLElement {
     existing.addEventListener("change", () => this._loadPanelIntoEditor(existing.value));
     fields.append(this._field("Существующая панель", existing));
 
-    const id = this._el("input", { value: this._panelId, placeholder: "например, yard_day" });
-    id.value = this._panelId;
-    id.disabled = Boolean(this._selectedPanel);
-    id.addEventListener("input", () => { this._panelId = id.value; });
-    fields.append(this._field("ID новой панели", id));
-
     const name = this._el("input", { value: this._panelName, placeholder: "Например, Двор" });
     name.value = this._panelName;
-    name.addEventListener("input", () => { this._panelName = name.value; });
+    const idPreview = this._el("div", { class: "muted" },
+      this._selectedPanel
+        ? "Технический ID: " + this._panelId
+        : "ID будет создан автоматически: " + this._generatePanelId(this._panelName || "panel"));
+    name.addEventListener("input", () => {
+      this._panelName = name.value;
+      if (!this._selectedPanel) {
+        idPreview.textContent = "ID будет создан автоматически: " + this._generatePanelId(this._panelName || "panel");
+      }
+    });
     fields.append(this._field("Название панели", name));
+    fields.append(this._field("Технический ID", idPreview));
 
     const size = this._numberInput(this._rows, 1, 8, value => {
       this._rows = value;
@@ -169,13 +173,17 @@ class ViewpieLayoutEditor extends HTMLElement {
         select.value = selectedCamera || "";
         select.addEventListener("change", () => {
           this._cells[key] = select.value;
+          // Update the preview immediately without waiting for Save.
+          this._render();
         });
         cell.append(select);
-        cell.append(this._el("small", {}, "Одна камера на ячейку; одну камеру разрешено повторять в других ячейках."));
         grid.append(cell);
       }
     }
-    card.append(grid);
+    const gridHelp = this._el("p", { class: "muted" },
+      "В каждой ячейке выбирается одна камера; одну и ту же камеру можно повторять в других ячейках.");
+    gridHelp.style.margin = "8px 0 0";
+    card.append(gridHelp, grid);
 
     const previewTitle = this._el("h3", {}, "Предпросмотр раскладки до сохранения");
     previewTitle.style.margin = "20px 0 8px";
@@ -312,12 +320,43 @@ class ViewpieLayoutEditor extends HTMLElement {
         if (!(viewport?.feeds || []).includes(camera)) continue;
         for (let r = 0; r < rows.length; r++) {
           for (let col = 0; col < rows[r].length; col++) {
-            if (rows[r][col] === viewport.slot) placements.push(`${panelId} · ${r + 1}×${col + 1}`);
+            if (rows[r][col] === viewport.slot) placements.push(`${this._panelLabel(panelId)} · ${r + 1}×${col + 1}`);
           }
         }
       }
     }
     return placements.length ? `${camera} — ${placements.join(", ")}` : `${camera} — не назначена`;
+  }
+
+  _panelLabel(panelId) {
+    const response = this._panelDetails?.[panelId];
+    const panel = response?.panel || response;
+    const name = typeof panel?.name === "string" ? panel.name.trim() : "";
+    return name || panelId;
+  }
+
+  _slugifyPanelName(value) {
+    const transliteration = {
+      а:"a", б:"b", в:"v", г:"g", д:"d", е:"e", ё:"yo", ж:"zh", з:"z",
+      и:"i", й:"y", к:"k", л:"l", м:"m", н:"n", о:"o", п:"p", р:"r",
+      с:"s", т:"t", у:"u", ф:"f", х:"kh", ц:"ts", ч:"ch", ш:"sh",
+      щ:"shch", ъ:"", ы:"y", ь:"", э:"e", ю:"yu", я:"ya"
+    };
+    const transliterated = Array.from(String(value || "").toLowerCase())
+      .map(char => transliteration[char] ?? char)
+      .join("")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "");
+    return transliterated.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "panel";
+  }
+
+  _generatePanelId(name) {
+    const base = this._slugifyPanelName(name);
+    const used = new Set(this._panelOptions || []);
+    if (!used.has(base)) return base;
+    let suffix = 2;
+    while (used.has(base + "-" + suffix)) suffix++;
+    return base + "-" + suffix;
   }
 
   _numberInput(value, min, max, callback) {
@@ -390,10 +429,10 @@ class ViewpieLayoutEditor extends HTMLElement {
   }
 
   async _savePanel(button) {
-    const panelId = this._selectedPanel || (this._panelId || "").trim();
     const panelName = (this._panelName || "").trim();
-    if (!panelId || !panelName) {
-      this._status = "Укажите ID и название панели.";
+    const panelId = this._selectedPanel || this._generatePanelId(panelName);
+    if (!panelName) {
+      this._status = "Укажите название панели.";
       this._error = true; this._render(); return;
     }
     if (!this._hass) return;
@@ -466,8 +505,8 @@ class ViewpieLayoutEditor extends HTMLElement {
 
   getCardSize() { return Math.max(4, this._rows * 2 + 3); }
 
-  static getConfigElement() { return document.createElement("viewpie-layout-editor-editor"); }
-  static getStubConfig() { return { title: "Редактор раскладки Viewpie", rows: 2, columns: 2 }; }
+  static getConfigElement() { return document.createElement("viewpie-card-config-editor"); }
+  static getStubConfig() { return { title: "Управление раскладкой", rows: 2, columns: 2 }; }
 }
 
 if (!customElements.get("viewpie-layout-editor")) {
@@ -478,7 +517,7 @@ window.customCards = window.customCards || [];
 if (!window.customCards.some(card => card.type === "viewpie-layout-editor")) {
   window.customCards.push({
     type: "viewpie-layout-editor",
-    name: "Viewpie Layout Editor",
+    name: "Viewpie — управление раскладкой",
     description: "Создание новой раскладки камеры Viewpie из сетки"
   });
 }

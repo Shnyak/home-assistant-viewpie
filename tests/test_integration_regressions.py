@@ -41,7 +41,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.4")
+        self.assertEqual(manifest["version"], "1.1.6")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -108,6 +108,31 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Добавить камеру", manager)
         self.assertNotIn("_selectPanel", manager)
         self.assertNotIn("_selectCamera", manager)
+
+
+    def test_all_viewpie_cards_support_visual_lovelace_configuration(self):
+        editor = (INTEGRATION / "www" / "viewpie-card-editor.js").read_text(encoding="utf-8")
+        self.assertIn('customElements.define("viewpie-card-config-editor"', editor)
+        self.assertIn('new CustomEvent("config-changed"', editor)
+        self.assertIn('"title"', editor)
+        for filename in ("viewpie-view-selector.js", "viewpie-layout-editor.js", "viewpie-camera-manager.js"):
+            source = (INTEGRATION / "www" / filename).read_text(encoding="utf-8")
+            self.assertIn("static getConfigElement()", source)
+            self.assertIn("static getStubConfig()", source)
+            self.assertIn('document.createElement("viewpie-card-config-editor")', source)
+        init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn('("viewpie-card-editor.js", "/viewpie/viewpie-card-editor.js"', init)
+
+    def test_panel_names_are_displayed_and_ids_are_generated_from_names(self):
+        selector = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        layout = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_panelLabel(panelId)", selector)
+        self.assertIn("this._panelLabel(id)", selector)
+        self.assertIn("Технический ID", layout)
+        self.assertIn("_slugifyPanelName", layout)
+        self.assertIn("_generatePanelId", layout)
+        self.assertIn('ё:"yo"', layout)
+        self.assertNotIn('ID новой панели', layout)
 
     def test_panel_and_camera_select_entities_are_mutually_exclusive(self):
         select_source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
