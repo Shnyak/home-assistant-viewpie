@@ -56,7 +56,9 @@ title: Управление камерами Viewpie
 ```yaml
 lovelace:
   resources:
-    - url: /viewpie/viewpie-card-editor.js\n      type: module\n    - url: /viewpie/viewpie-layout-editor.js
+    - url: /viewpie/viewpie-card-editor.js
+      type: module
+    - url: /viewpie/viewpie-layout-editor.js
       type: module
     - url: /viewpie/viewpie-camera-manager.js
       type: module
