@@ -19,7 +19,7 @@ class ViewpieViewSelector extends HTMLElement {
     const states = Object.values(hass?.states || {});
     const matchesEntry = s => !this._entryId || s.entity_id.includes(this._entryId);
     const fullscreen = states.find(s => s.entity_id.startsWith("select.") &&
-      s.entity_id.endsWith("_fullscreen") && Array.isArray(s.attributes?.options) && matchesEntry(s));
+      s.entity_id.endsWith("_fullscreen_camera") && Array.isArray(s.attributes?.options) && matchesEntry(s));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.entity_id.endsWith("_panel") && Array.isArray(s.attributes?.options) && matchesEntry(s));
     const signature = JSON.stringify([
