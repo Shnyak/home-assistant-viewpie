@@ -91,15 +91,19 @@ class ViewpieApiClient:
         method: str,
         path: str,
         data: Optional[dict[str, Any]] = None,
+        extra_headers: Optional[dict[str, str]] = None,
     ) -> Any:
         if self._session is None:
             await self.async_init()
         assert self._session is not None
         url = f"{self._base_url}{path}"
+        headers = self._headers()
+        if extra_headers:
+            headers.update(extra_headers)
         _LOGGER.debug("viewpie request: %s %s", method, url)
         try:
             async with self._session.request(
-                method, url, json=data, headers=self._headers()
+                method, url, json=data, headers=headers
             ) as response:
                 response.raise_for_status()
                 text = await response.text()
@@ -221,9 +225,11 @@ class ViewpieApiClient:
         result = await self._request("POST", API_RELOAD)
         return result if isinstance(result, dict) else {}
 
-    async def restart_host(self) -> dict[str, Any]:
-        """Request a protected host reboot; the API key is the restart bearer token."""
-        result = await self._request("POST", API_RESTART)
+    async def restart_host(self, token: str) -> dict[str, Any]:
+        """Request a protected host reboot with the dedicated restart token."""
+        result = await self._request(
+            "POST", API_RESTART, extra_headers={"Authorization": f"Bearer {token}"}
+        )
         return result if isinstance(result, dict) else {}
 
     async def test_connection(self) -> bool:
