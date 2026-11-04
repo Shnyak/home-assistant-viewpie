@@ -196,6 +196,9 @@ class ViewpieViewSelector extends HTMLElement {
   }
 
   getCardSize() { return 3; }
+
+  static getConfigElement() { return document.createElement("viewpie-card-config-editor"); }
+  static getStubConfig() { return { title: "Выбор отображения" }; }
 }
 
 if (!customElements.get("viewpie-view-selector")) {
