@@ -151,6 +151,8 @@ class ViewpieCameraManager extends HTMLElement {
   }
 
   getCardSize(){return 4;}
+  static getConfigElement(){return document.createElement("viewpie-card-config-editor");}
+  static getStubConfig(){return {title:"Управление камерами"};}
 }
 if(!customElements.get("viewpie-camera-manager"))customElements.define("viewpie-camera-manager",ViewpieCameraManager);
 window.customCards=window.customCards||[];
