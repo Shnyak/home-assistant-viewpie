@@ -24,6 +24,7 @@ API_PANELS = "/api/panels"
 API_PANELS_ACTIVATE = "/api/panels/{panel_id}/activate"
 API_CAMERAS = "/api/cameras"
 API_RELOAD = "/api/reload"
+API_RESTART = "/api/restart"
 
 PLATFORMS: list[str] = [
     "switch",
