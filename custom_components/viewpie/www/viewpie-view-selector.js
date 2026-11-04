@@ -177,6 +177,16 @@ class ViewpieViewSelector extends HTMLElement {
     `;
     const card = this._el("ha-card");
     card.append(this._el("h2", {}, this._config.title || "Viewpie — выбор отображения"));
+    const screenRow = this._el("div", {class: "choice-row screen-control"});
+    screenRow.append(this._el("span", {class: "choice-label"}, "Экран"));
+    const screenOn = this._screenEntity?.state === "on";
+    const screenButton = this._el("button", {class: screenOn ? "active" : ""},
+      this._screenEntity ? (screenOn ? "Включён" : "Выключен") : "Сущность не найдена");
+    screenButton.disabled = this._busy || !this._screenEntity || this._screenEntity.state === "unavailable";
+    screenButton.setAttribute("aria-pressed", String(screenOn));
+    screenButton.addEventListener("click", () => this._toggleScreen());
+    screenRow.append(screenButton);
+    card.append(screenRow);
     card.append(this._el("h3", {}, "Панели"));
     const panels = this._el("div", {class: "choice-list"});
     const activePanel = this._activePanel();
