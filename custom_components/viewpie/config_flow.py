@@ -108,6 +108,10 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    
+    @staticmethod
+    def async_get_options_flow(config_entry: ConfigEntry):
+        return ViewpieOptionsFlow(config_entry)
 
 
 class ViewpieOptionsFlow(config_entries.OptionsFlow):
