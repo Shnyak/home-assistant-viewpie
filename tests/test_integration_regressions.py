@@ -41,7 +41,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.3")
+        self.assertEqual(manifest["version"], "1.1.4")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -92,14 +92,38 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('async _chooseCamera(camera)', card)
         self.assertNotIn('manage_camera', card)
         self.assertNotIn('RTSP URL', card)
-        self.assertIn('this._fullscreenEntity.state !== "Grid"', card)
+        self.assertIn("this._activeCamera()", card)
+        self.assertIn("this._activePanel()", card)
+
+    def test_three_viewpie_cards_have_separate_responsibilities(self):
+        selector = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        layout = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        manager = (INTEGRATION / "www" / "viewpie-camera-manager.js").read_text(encoding="utf-8")
+        self.assertIn("choice-list", selector)
+        self.assertIn("choice-row", selector)
+        self.assertIn("Переключить", selector)
+        self.assertNotIn("_renderCameraManager", layout)
+        self.assertNotIn("manage_camera", layout)
+        self.assertIn("Создать панель", layout)
+        self.assertIn("Добавить камеру", manager)
+        self.assertNotIn("_selectPanel", manager)
+        self.assertNotIn("_selectCamera", manager)
+
+    def test_panel_and_camera_select_entities_are_mutually_exclusive(self):
+        select_source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
+        self.assertIn('if self.status.get("fullscreen_camera"):', select_source)
+        self.assertIn('return None', select_source)
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        panel_method = coordinator[coordinator.index("    async def async_activate_panel"):coordinator.index("    async def async_update_settings")]
+        self.assertLess(panel_method.index("await self.client.grid()"), panel_method.index("await self.client.activate_panel(panel_id)"))
 
     def test_camera_management_ui_and_confirmed_delete_are_present(self):
-        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
-        self.assertIn("_renderCameraManager(card)", source)
+        source = (INTEGRATION / "www" / "viewpie-camera-manager.js").read_text(encoding="utf-8")
         for label in ('"Добавить камеру"', '"Сохранить изменения"', '"Проверить RTSP"', '"Удалить камеру"'):
             self.assertIn(label, source)
         self.assertIn("window.confirm(", source)
+        self.assertNotIn("_selectPanel", source)
+        self.assertNotIn("_selectCamera", source)
         init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("await client.delete_camera(name)", init)
         self.assertIn("await client.reload_config()", init)
