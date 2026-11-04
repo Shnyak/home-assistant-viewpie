@@ -30,7 +30,9 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn('resources.async_items()', source)
         self.assertIn('for _, url, label in static_paths:', source)
-        self.assertIn('resources.async_create_item({"res_type": "module", "url": url})', source)
+        self.assertIn('resources.async_create_item({"res_type": "module", "url": versioned_url})', source)
+        self.assertIn("resources.async_update_item(current[\"id\"], {\"url\": versioned_url})", source)
+        self.assertIn('version = json.loads((integration_dir / "manifest.json")', source)
         self.assertIn('("viewpie-camera-manager.js", "/viewpie/viewpie-camera-manager.js", "camera manager")', source)
         self.assertIn('hasattr(resources, "async_create_item")', source)
         manifest = __import__("json").loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
@@ -41,7 +43,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.6")
+        self.assertEqual(manifest["version"], "1.1.7")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
