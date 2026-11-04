@@ -94,7 +94,6 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertNotIn('RTSP URL', card)
         self.assertIn('this._fullscreenEntity.state !== "Grid"', card)
 
-
     def test_panel_and_camera_select_entities_are_mutually_exclusive(self):
         select_source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
         self.assertIn('if self.status.get("fullscreen_camera"):', select_source)

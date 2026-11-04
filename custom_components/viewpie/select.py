@@ -166,6 +166,10 @@ class ViewpiePanelSelect(ViewpieSelectBase):
     @property
     def current_option(self) -> str | None:
         """Currently active panel id."""
+        # Fullscreen camera takes priority over the selected background panel.
+        # Report no selected panel while the camera is the active output.
+        if self.status.get("fullscreen_camera"):
+            return None
         panel = self.status.get("active_panel")
         if panel is not None and str(panel) in self.options:
             return str(panel)
