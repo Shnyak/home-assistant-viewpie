@@ -505,8 +505,8 @@ class ViewpieLayoutEditor extends HTMLElement {
 
   getCardSize() { return Math.max(4, this._rows * 2 + 3); }
 
-  static getConfigElement() { return document.createElement("viewpie-layout-editor-editor"); }
-  static getStubConfig() { return { title: "Редактор раскладки Viewpie", rows: 2, columns: 2 }; }
+  static getConfigElement() { return document.createElement("viewpie-card-config-editor"); }
+  static getStubConfig() { return { title: "Управление раскладкой", rows: 2, columns: 2 }; }
 }
 
 if (!customElements.get("viewpie-layout-editor")) {
@@ -517,7 +517,7 @@ window.customCards = window.customCards || [];
 if (!window.customCards.some(card => card.type === "viewpie-layout-editor")) {
   window.customCards.push({
     type: "viewpie-layout-editor",
-    name: "Viewpie Layout Editor",
+    name: "Viewpie — управление раскладкой",
     description: "Создание новой раскладки камеры Viewpie из сетки"
   });
 }
