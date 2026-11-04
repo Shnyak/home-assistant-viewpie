@@ -48,7 +48,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_grid(self) -> None:
         """Leave fullscreen mode and return to the currently active panel."""
         await self.client.grid()
-        await self.async_request_refresh()
+        await self.async_refresh()
 
     async def async_fullscreen(self, camera: str, duration: Optional[int] = None) -> None:
         """Make a camera the sole active output choice."""
@@ -56,7 +56,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self.async_grid()
             return
         await self.client.fullscreen(camera, duration)
-        await self.async_request_refresh()
+        await self.async_refresh()
 
     async def async_activate_panel(self, panel_id: str) -> None:
         """Make a panel the sole active output choice."""
@@ -65,6 +65,6 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Home Assistant entity state cannot disagree.
         await self.client.grid()
         await self.client.activate_panel(panel_id)
-        await self.async_request_refresh()
+        await self.async_refresh()
     async def async_update_settings(self, **kwargs: Any) -> None: await self.client.update_settings(**kwargs); await self.async_request_refresh()
     async def async_reload_config(self) -> None: await self.client.reload_config(); await self.async_request_refresh()

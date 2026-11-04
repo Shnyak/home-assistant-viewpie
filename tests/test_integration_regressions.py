@@ -92,7 +92,8 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('async _chooseCamera(camera)', card)
         self.assertNotIn('manage_camera', card)
         self.assertNotIn('RTSP URL', card)
-        self.assertIn('this._fullscreenEntity.state !== "Grid"', card)
+        self.assertIn("this._activeCamera()", card)
+        self.assertIn("this._activePanel()", card)
 
     def test_three_viewpie_cards_have_separate_responsibilities(self):
         selector = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
