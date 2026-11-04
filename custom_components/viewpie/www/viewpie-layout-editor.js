@@ -305,8 +305,8 @@ class ViewpieLayoutEditor extends HTMLElement {
     for (const [panelId, response] of Object.entries(details)) {
       // GET /api/panels/{id} returns { id, panel: { layout, viewports, name } }.
       const panel = response?.panel || response;
-      const rows = String(panel?.layout || "").trim().split(/\\r?\\n/).filter(Boolean)
-        .map(row => row.trim().split(/\\s+/));
+      const rows = String(panel?.layout || "").trim().split(/\r?\n/).filter(Boolean)
+        .map(row => row.trim().split(/\s+/));
       const viewports = Array.isArray(panel?.viewports) ? panel.viewports : [];
       for (const viewport of viewports) {
         if (!(viewport?.feeds || []).includes(camera)) continue;
