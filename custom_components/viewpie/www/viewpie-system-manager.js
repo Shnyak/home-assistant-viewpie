@@ -45,7 +45,7 @@ class ViewpieSystemManager extends HTMLElement {
     const hint = document.createElement("div");
     hint.className = "hint";
     hint.textContent = this._button ? "Команда выполняется на Raspberry Pi." :
-      "Настройте ключ API в параметрах интеграции и секрет VIEWPIE_RESTART_TOKEN на Raspberry Pi.";
+      "Задайте токен перезагрузки в параметрах интеграции и VIEWPIE_RESTART_TOKEN на Raspberry Pi.";
     card.append(title, button, hint);
     root.append(style, card);
   }
