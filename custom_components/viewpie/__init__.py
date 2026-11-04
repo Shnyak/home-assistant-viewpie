@@ -48,6 +48,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     cards = (
         ("viewpie-layout-editor.js", "/viewpie/viewpie-layout-editor.js", "layout editor"),
         ("viewpie-camera-manager.js", "/viewpie/viewpie-camera-manager.js", "camera manager"),
+        ("viewpie-view-selector.js", "/viewpie/viewpie-view-selector.js", "view selector"),
     )
     if hass.http is None:
         _LOGGER.debug("Skipping Viewpie Lovelace cards: HTTP is unavailable")
