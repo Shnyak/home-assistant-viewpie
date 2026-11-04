@@ -151,7 +151,7 @@ class ViewpieSelectBase(ViewpieEntity, RestoreEntity, SelectEntity):
 class ViewpiePanelSelect(ViewpieSelectBase):
     """Select the active panel (scene)."""
 
-    _attr_name = "Panel"
+    _attr_name = "Выбор панели"
     _attr_icon = "mdi:view-dashboard"
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:
@@ -185,7 +185,7 @@ class ViewpiePanelSelect(ViewpieSelectBase):
 class ViewpieFullscreenSelect(ViewpieSelectBase):
     """Select a camera to display full-screen, or return to grid."""
 
-    _attr_name = "Fullscreen camera"
+    _attr_name = "Полноэкранная камера"
     _attr_icon = "mdi:fullscreen"
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:

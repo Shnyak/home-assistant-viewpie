@@ -42,7 +42,7 @@ async def async_setup_entry(
 class ViewpiePauseSwitch(ViewpieEntity, SwitchEntity):
     """Switch the camera wall screen off / on."""
 
-    _attr_name = "Выключение экрана"
+    _attr_name = "Экран"
     _attr_icon = "mdi:pause-circle"
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:
@@ -52,28 +52,26 @@ class ViewpiePauseSwitch(ViewpieEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return True when the camera wall screen is off."""
-        return bool(self.status.get("paused", False))
+        """Return True when the camera wall screen is on."""
+        return not bool(self.status.get("paused", False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the camera wall screen off."""
-        try:
-            await self.coordinator.async_pause()
-        except ViewpieConnectionError as err:
-            raise HomeAssistantError(f"Failed to pause viewpie: {err}") from err
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the camera wall screen on."""
         try:
             await self.coordinator.async_resume()
         except ViewpieConnectionError as err:
             raise HomeAssistantError(f"Failed to resume viewpie: {err}") from err
 
-
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the camera wall screen off."""
+        try:
+            await self.coordinator.async_pause()
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(f"Failed to pause viewpie: {err}") from err
 class ViewpiePauseOffScreenSwitch(ViewpieEntity, SwitchEntity):
     """Switch for auto-pause when the screen is off (settings-backed)."""
 
-    _attr_name = "Auto-pause when screen off"
+    _attr_name = "Авто пауза видео"
     _attr_icon = "mdi:monitor-off"
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:

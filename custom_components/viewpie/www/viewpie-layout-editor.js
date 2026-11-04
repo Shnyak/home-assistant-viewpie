@@ -218,7 +218,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       card.append(warning);
     }
     const help = this._el("p", { class: "muted" },
-      "Сетка всегда квадратная (от 1×1 до 8×8). Соседние ячейки одной камеры объединяются в один прямоугольный viewport. Пустые ячейки допустимы.");
+      "Сетка всегда квадратная (от 1×1 до 8×8). Соседние ячейки одной камеры объединяются только в квадратный viewport (2×2, 3×3 и т. д.). Пустые ячейки допустимы.");
     card.append(help);
     const actions = this._el("div", { class: "actions" });
     const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
@@ -286,9 +286,14 @@ class ViewpieLayoutEditor extends HTMLElement {
       const bottom = Math.max(...coords.map(v => v[0]));
       const left = Math.min(...coords.map(v => v[1]));
       const right = Math.max(...coords.map(v => v[1]));
-      const area = (bottom - top + 1) * (right - left + 1);
+      const height = bottom - top + 1;
+      const width = right - left + 1;
+      const area = height * width;
       if (area !== cells.length) {
         throw new Error(`Ячейки камеры «${camera}» должны образовывать один сплошной прямоугольник. Исправьте Г-образную или разорванную область.`);
+      }
+      if (cells.length > 1 && height !== width) {
+        throw new Error('Область камеры «' + camera + '» должна быть квадратной (2×2, 3×3 и т. д.). Прямоугольные объединения запрещены.');
       }
       regions.push({ camera, cells, top, bottom, left, right });
     }

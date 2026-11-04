@@ -34,7 +34,6 @@ async def async_setup_entry(
     async_add_entities(
         [
             ViewpieSpacingNumber(coordinator),
-            ViewpieRotationIntervalNumber(coordinator),
             ViewpieFullscreenTimeoutNumber(coordinator),
         ]
     )
@@ -84,7 +83,7 @@ class ViewpieNumberBase(ViewpieEntity, NumberEntity):
 class ViewpieSpacingNumber(ViewpieNumberBase):
     """Spacing (divider thickness) between camera tiles, in pixels."""
 
-    _attr_name = "Camera spacing"
+    _attr_name = "Зазор между камерами"
     _attr_icon = "mdi:grid"
     _attr_native_unit_of_measurement = "px"
     _setting_key = "spacing"
@@ -110,7 +109,7 @@ class ViewpieRotationIntervalNumber(ViewpieNumberBase):
 class ViewpieFullscreenTimeoutNumber(ViewpieNumberBase):
     """Auto-return timeout of fullscreen mode, in seconds."""
 
-    _attr_name = "Fullscreen timeout"
+    _attr_name = "Время показа на весь экран"
     _attr_icon = "mdi:timer-sand"
     _attr_native_unit_of_measurement = "s"
     _setting_key = "fullscreen_timeout"

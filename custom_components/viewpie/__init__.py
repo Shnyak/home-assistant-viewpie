@@ -43,51 +43,52 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Serve and automatically register the bundled Lovelace layout editor."""
-    editor_path = Path(__file__).parent / "www" / "viewpie-layout-editor.js"
-    if not editor_path.is_file():
-        _LOGGER.warning("Viewpie layout editor file is missing: %s", editor_path)
-        return True
-
+    """Serve and register the bundled Viewpie Lovelace cards."""
+    www = Path(__file__).parent / "www"
+    cards = (
+        ("viewpie-layout-editor.js", "/viewpie/viewpie-layout-editor.js", "layout editor"),
+        ("viewpie-camera-manager.js", "/viewpie/viewpie-camera-manager.js", "camera manager"),
+        ("viewpie-view-selector.js", "/viewpie/viewpie-view-selector.js", "view selector"),
+    )
     if hass.http is None:
-        _LOGGER.debug("Skipping Viewpie editor setup: HTTP is unavailable")
+        _LOGGER.debug("Skipping Viewpie Lovelace cards: HTTP is unavailable")
         return True
 
-    url_path = "/viewpie/viewpie-layout-editor.js"
+    static_paths = []
+    for filename, url_path, label in cards:
+        file_path = www / filename
+        if not file_path.is_file():
+            _LOGGER.warning("Viewpie %s file is missing: %s", label, file_path)
+            continue
+        static_paths.append((file_path, url_path, label))
+
     if hasattr(hass.http, "async_register_static_paths"):
         from homeassistant.components.http import StaticPathConfig
-
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(url_path=url_path, path=str(editor_path), cache_headers=False)]
-        )
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(url_path=url, path=str(path), cache_headers=False)
+            for path, url, _ in static_paths
+        ])
     else:
-        hass.http.register_static_path(url_path, str(editor_path), cache_headers=False)
+        for path, url, _ in static_paths:
+            hass.http.register_static_path(url, str(path), cache_headers=False)
 
-    # YAML-mode Lovelace exposes a read-only ResourceYAMLCollection. In
-    # storage mode, add the module once and preserve every existing resource.
     lovelace = hass.data.get("lovelace")
     resources = getattr(lovelace, "resources", None)
     if resources is None:
-        _LOGGER.debug("Lovelace resource collection is unavailable; editor file is served but not auto-registered")
+        _LOGGER.debug("Lovelace resource collection is unavailable; card files are served but not auto-registered")
         return True
-
     if not hasattr(resources, "async_create_item"):
-        _LOGGER.warning(
-            "Viewpie editor is served at %s, but Lovelace is in YAML mode. "
-            "Add it under lovelace.resources as a JavaScript module.",
-            url_path,
-        )
+        _LOGGER.warning("Viewpie cards are served, but Lovelace is in YAML mode. Add their resources manually.")
         return True
 
     try:
         existing = resources.async_items()
-        if not any(item.get("url") == url_path for item in existing):
-            await resources.async_create_item({"res_type": "module", "url": url_path})
-            _LOGGER.info("Registered Viewpie Lovelace editor resource: %s", url_path)
-        else:
-            _LOGGER.debug("Viewpie Lovelace editor resource is already registered")
+        for _, url, label in static_paths:
+            if not any(item.get("url") == url for item in existing):
+                await resources.async_create_item({"res_type": "module", "url": url})
+                _LOGGER.info("Registered Viewpie Lovelace %s resource: %s", label, url)
     except (HomeAssistantError, ValueError, TypeError, AttributeError):
-        _LOGGER.exception("Could not automatically register Viewpie Lovelace editor resource")
+        _LOGGER.exception("Could not automatically register Viewpie Lovelace card resources")
     return True
 ViewpieApiClient = _ViewpieApiClient
 
@@ -357,6 +358,18 @@ def _register_services(hass: HomeAssistant) -> None:
                 raise HomeAssistantError("viewports must be a list")
         for coordinator in _iter_coordinators(hass, call, management=True):
             client = coordinator.client
+            # Viewpie may fall back to its first panel after Reload config.
+            # Preserve the active panel across edits whenever it still exists.
+            previous_active_panel = None
+            if operation == "update":
+                try:
+                    status = await client.get_status()
+                    previous_active_panel = status.get("active_panel")
+                except Exception as err:
+                    _LOGGER.warning(
+                        "Could not read active panel before updating '%s': %s",
+                        panel_id, err,
+                    )
             if operation == "create":
                 await client.create_panel(panel_id, panel)
             elif operation == "update":
@@ -369,6 +382,20 @@ def _register_services(hass: HomeAssistant) -> None:
                 raise HomeAssistantError(
                     f"Panel '{panel_id}' was saved, but Viewpie Reload config failed: {err}"
                 ) from err
+            if operation == "update" and previous_active_panel:
+                try:
+                    available_panels = {
+                        str(item.get("id") if isinstance(item, dict) else item)
+                        for item in await client.get_panels()
+                    }
+                    if str(previous_active_panel) in available_panels:
+                        await client.activate_panel(str(previous_active_panel))
+                        await refresh(coordinator)
+                except Exception as err:
+                    _LOGGER.warning(
+                        "Panel '%s' was saved, but restoring active panel '%s' failed: %s",
+                        panel_id, previous_active_panel, err,
+                    )
 
     hass.services.async_register(
         DOMAIN, SERVICE_FULLSCREEN, handle_fullscreen,

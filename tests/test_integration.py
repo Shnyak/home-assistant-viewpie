@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_USER
+from homeassistant.helpers import entity_registry as er
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -39,8 +40,12 @@ async def test_config_flow_success(hass: HomeAssistant, mock_client):
     assert entry.data[CONF_HOST] == "viewpi"
     # Coordinator did a first refresh and platforms were set up
     mock_client.get_status.assert_awaited()
-    states = {s.entity_id for s in hass.states.async_all()}
-    assert f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana" in states, states
+    registry = er.async_get(hass)
+    screen_entity_id = registry.async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_pause"
+    )
+    assert screen_entity_id is not None
+    assert hass.states.get(screen_entity_id) is not None
 
 
 async def test_config_flow_cannot_connect(hass: HomeAssistant, mock_client):
@@ -58,21 +63,33 @@ async def test_config_flow_cannot_connect(hass: HomeAssistant, mock_client):
 
 
 async def test_entities_states(hass: HomeAssistant, mock_client):
-    await _add_entry(hass)
+    entry = await _add_entry(hass)
     states = {s.entity_id: s for s in hass.states.async_all()}
-
-    sw = states[f"switch.{DOMAIN}_viewpi_vykliuchenie_ekrana"]
-    assert sw.state == "off"
-    await hass.services.async_call(
-        "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
+    registry = er.async_get(hass)
+    screen_entity_id = registry.async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_pause"
     )
-    mock_client.pause.assert_awaited()
+    assert screen_entity_id is not None
+
+    sw = states[screen_entity_id]
+    # The switch represents the physical screen: on = screen on,
+    # off = screen off (paused in the Viewpie API).
+    assert sw.state == "on"
     await hass.services.async_call(
         "switch", "turn_off", {"entity_id": sw.entity_id}, blocking=True
     )
+    mock_client.pause.assert_awaited()
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": sw.entity_id}, blocking=True
+    )
     mock_client.resume.assert_awaited()
 
-    sel = states[f"select.{DOMAIN}_viewpi_panel"]
+    panel_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_panel"
+    )
+    assert panel_entity_id is not None
+    sel = hass.states.get(panel_entity_id)
+    assert sel is not None
     assert "inside" in sel.attributes["options"]
     assert sel.attributes["current_option"] == "outside"
     assert sel.state == "outside"
@@ -82,7 +99,12 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.activate_panel.assert_awaited_with("night")
 
-    fs = states[f"select.{DOMAIN}_viewpi_fullscreen_camera"]
+    fullscreen_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_fullscreen"
+    )
+    assert fullscreen_entity_id is not None
+    fs = hass.states.get(fullscreen_entity_id)
+    assert fs is not None
     assert fs.attributes["options"][0] == "Grid"
     await hass.services.async_call(
         "select", "select_option",
@@ -90,7 +112,12 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.fullscreen.assert_awaited_with("pool", None)
 
-    num = states[f"number.{DOMAIN}_viewpi_camera_spacing"]
+    spacing_entity_id = registry.async_get_entity_id(
+        "number", DOMAIN, f"{entry.entry_id}_spacing"
+    )
+    assert spacing_entity_id is not None
+    num = hass.states.get(spacing_entity_id)
+    assert num is not None
     assert float(num.state) == 1.0
     await hass.services.async_call(
         "number", "set_value",
@@ -205,8 +232,12 @@ async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_clie
     entry = hass.config_entries.async_entries(DOMAIN)[0]
     await hass.async_block_till_done()
 
-    states = {s.entity_id for s in hass.states.async_all()}
-    assert "switch.viewpie_127_0_0_1_vykliuchenie_ekrana" in states, states
+    registry = er.async_get(hass)
+    screen_entity_id = registry.async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_pause"
+    )
+    assert screen_entity_id is not None
+    assert hass.states.get(screen_entity_id) is not None
     mock_client.get_status.assert_awaited()
 
     assert await hass.config_entries.async_unload(entry.entry_id)
