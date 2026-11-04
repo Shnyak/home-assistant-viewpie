@@ -46,6 +46,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Serve and register the bundled Viewpie Lovelace cards."""
     www = Path(__file__).parent / "www"
     cards = (
+        ("viewpie-card-editor.js", "/viewpie/viewpie-card-editor.js", "card configuration editor"),
         ("viewpie-layout-editor.js", "/viewpie/viewpie-layout-editor.js", "layout editor"),
         ("viewpie-camera-manager.js", "/viewpie/viewpie-camera-manager.js", "camera manager"),
         ("viewpie-view-selector.js", "/viewpie/viewpie-view-selector.js", "view selector"),
