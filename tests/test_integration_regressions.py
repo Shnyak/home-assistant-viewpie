@@ -41,7 +41,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.2")
+        self.assertEqual(manifest["version"], "1.1.3")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -79,6 +79,20 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("viewports.push({ slot, feeds: [region.camera] });", source)
         self.assertIn('layout: matrix.map(row => row.join(" ")).join("\\n")', source)
         self.assertIn("должны образовывать один сплошной прямоугольник", source)
+
+    def test_dedicated_view_selector_is_separate_and_refreshes_dynamic_lists(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn('("viewpie-view-selector.js", "/viewpie/viewpie-view-selector.js", "view selector")', source)
+        card = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        self.assertIn('customElements.define("viewpie-view-selector"', card)
+        self.assertIn('this._hass.callService("homeassistant", "update_entity"', card)
+        self.assertIn('this._panels.forEach', card)
+        self.assertIn('this._cameras.forEach', card)
+        self.assertIn('async _choosePanel(panelId)', card)
+        self.assertIn('async _chooseCamera(camera)', card)
+        self.assertNotIn('manage_camera', card)
+        self.assertNotIn('RTSP URL', card)
+        self.assertIn('this._fullscreenEntity.state !== "Grid"', card)
 
     def test_camera_management_ui_and_confirmed_delete_are_present(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
