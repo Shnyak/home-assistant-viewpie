@@ -86,11 +86,12 @@ class ViewpieViewSelector extends HTMLElement {
   async _chooseCamera(camera) {
     if (this._busy || !this._hass) return;
     this._busy = true;
-    this._status = "Включаю камеру на весь экран…";
+    const returningToPanel = this._activeCamera() === camera;
+    this._status = returningToPanel ? "Возвращаюсь к активной панели…" : "Включаю камеру на весь экран…";
     this._render();
     try {
-      await this._callSelect(this._fullscreenEntity, camera);
-      this._status = "Активна полноэкранная камера: " + camera;
+      await this._callSelect(this._fullscreenEntity, returningToPanel ? "Grid" : camera);
+      this._status = returningToPanel ? "Полноэкранный режим выключен." : "Активна полноэкранная камера: " + camera;
     } catch (err) {
       this._status = "Не удалось включить камеру: " + (err?.message || err);
     } finally {
@@ -167,9 +168,9 @@ class ViewpieViewSelector extends HTMLElement {
       const active = name === activeCamera;
       const row = this._el("div", {class: "choice-row"});
       row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, name));
-      const button = this._el("button", {class: active ? "active" : ""}, active ? "Активна" : "Переключить");
+      const button = this._el("button", {class: active ? "active" : ""}, active ? "Вернуться к панели" : "Переключить");
       button.setAttribute("aria-pressed", String(active));
-      button.disabled = this._busy || active;
+      button.disabled = this._busy;
       button.addEventListener("click", () => this._chooseCamera(name));
       row.append(button);
       cameras.append(row);

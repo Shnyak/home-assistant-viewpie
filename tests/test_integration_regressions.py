@@ -104,9 +104,12 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertLess(panel_method.index("await self.client.grid()"), panel_method.index("await self.client.activate_panel(panel_id)"))
 
     def test_camera_management_ui_and_confirmed_delete_are_present(self):
-        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        source = (INTEGRATION / "www" / "viewpie-camera-manager.js").read_text(encoding="utf-8")
         for label in ('"Добавить камеру"', '"Сохранить изменения"', '"Проверить RTSP"', '"Удалить камеру"'):
             self.assertIn(label, source)
+        self.assertNotIn("Панели", source)
+        self.assertNotIn("_selectPanel", source)
+        self.assertNotIn("_selectCamera", source)
         self.assertIn("window.confirm(", source)
         init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("await client.delete_camera(name)", init)

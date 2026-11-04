@@ -45,26 +45,10 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return data
     async def async_pause(self) -> None: await self.client.pause(); await self.async_request_refresh()
     async def async_resume(self) -> None: await self.client.resume(); await self.async_request_refresh()
-    async def async_grid(self) -> None:
-        """Leave fullscreen mode and return to the currently active panel."""
-        await self.client.grid()
-        await self.async_request_refresh()
-
+    async def async_grid(self) -> None: await self.client.grid(); await self.async_request_refresh()
     async def async_fullscreen(self, camera: str, duration: Optional[int] = None) -> None:
-        """Make a camera the sole active output choice."""
-        if camera == OPTION_GRID:
-            await self.async_grid()
-            return
-        await self.client.fullscreen(camera, duration)
-        await self.async_request_refresh()
-
-    async def async_activate_panel(self, panel_id: str) -> None:
-        """Make a panel the sole active output choice."""
-        # Viewpie retains the selected panel as a background scene in fullscreen.
-        # Leave fullscreen before activating a panel so the visible output and
-        # Home Assistant entity state cannot disagree.
-        await self.client.grid()
-        await self.client.activate_panel(panel_id)
-        await self.async_request_refresh()
+        if camera == OPTION_GRID: await self.async_grid(); return
+        await self.client.fullscreen(camera, duration); await self.async_request_refresh()
+    async def async_activate_panel(self, panel_id: str) -> None: await self.client.activate_panel(panel_id); await self.async_request_refresh()
     async def async_update_settings(self, **kwargs: Any) -> None: await self.client.update_settings(**kwargs); await self.async_request_refresh()
     async def async_reload_config(self) -> None: await self.client.reload_config(); await self.async_request_refresh()

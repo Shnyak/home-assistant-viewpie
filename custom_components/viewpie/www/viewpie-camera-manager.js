@@ -22,7 +22,6 @@ class ViewpieCameraManager extends HTMLElement {
     if (signature !== this._signature) {
       this._signature = signature;
       this._cameraOptions = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
-      this._panelOptions = panel ? panel.attributes.options : [];
       if (this._cameraName && !this._cameraOptions.includes(this._cameraName)) {
         this._cameraName = "";
         this._cameraUrl = "";
