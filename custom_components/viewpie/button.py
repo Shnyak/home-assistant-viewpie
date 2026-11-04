@@ -16,7 +16,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api_client import ViewpieConnectionError
-from .const import CONF_API_KEY, DOMAIN
+from .const import CONF_RESTART_TOKEN, DOMAIN
 from .coordinator import ViewpieCoordinator
 from .entity import ViewpieEntity
 
@@ -90,15 +90,25 @@ class ViewpieRestartButton(ViewpieEntity, ButtonEntity):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_restart_host"
 
     @property
+    def _restart_token(self) -> str:
+        return str(
+            self.coordinator.entry.options.get(CONF_RESTART_TOKEN)
+            or self.coordinator.entry.data.get(CONF_RESTART_TOKEN)
+            or ""
+        ).strip()
+
+    @property
     def available(self) -> bool:
         return (
             self.coordinator.last_update_success
-            and bool(self.coordinator.entry.data.get(CONF_API_KEY))
+            and bool(self._restart_token)
             and bool(self.status.get("restart_available", False))
         )
 
     async def async_press(self) -> None:
         try:
-            await self.coordinator.client.restart_host()
+            if not self._restart_token:
+                raise HomeAssistantError("Сначала задайте токен перезагрузки в настройках интеграции Viewpie")
+            await self.coordinator.client.restart_host(self._restart_token)
         except ViewpieConnectionError as err:
             raise HomeAssistantError(f"Не удалось перезагрузить Raspberry Pi: {err}") from err
