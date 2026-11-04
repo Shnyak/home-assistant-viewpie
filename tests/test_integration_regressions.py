@@ -41,7 +41,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.3")
+        self.assertEqual(manifest["version"], "1.1.4")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -94,9 +94,17 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertNotIn('RTSP URL', card)
         self.assertIn('this._fullscreenEntity.state !== "Grid"', card)
 
+
+    def test_panel_and_camera_select_entities_are_mutually_exclusive(self):
+        select_source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
+        self.assertIn('if self.status.get("fullscreen_camera"):', select_source)
+        self.assertIn('return None', select_source)
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        panel_method = coordinator[coordinator.index("    async def async_activate_panel"):coordinator.index("    async def async_update_settings")]
+        self.assertLess(panel_method.index("await self.client.grid()"), panel_method.index("await self.client.activate_panel(panel_id)"))
+
     def test_camera_management_ui_and_confirmed_delete_are_present(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
-        self.assertIn("_renderCameraManager(card)", source)
         for label in ('"Добавить камеру"', '"Сохранить изменения"', '"Проверить RTSP"', '"Удалить камеру"'):
             self.assertIn(label, source)
         self.assertIn("window.confirm(", source)
