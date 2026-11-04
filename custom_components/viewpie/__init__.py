@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -44,7 +45,12 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Serve and register the bundled Viewpie Lovelace cards."""
-    www = Path(__file__).parent / "www"
+    integration_dir = Path(__file__).parent
+    www = integration_dir / "www"
+    try:
+        version = json.loads((integration_dir / "manifest.json").read_text(encoding="utf-8")).get("version", "0")
+    except (OSError, ValueError):
+        version = "0"
     cards = (
         ("viewpie-card-editor.js", "/viewpie/viewpie-card-editor.js", "card configuration editor"),
         ("viewpie-layout-editor.js", "/viewpie/viewpie-layout-editor.js", "layout editor"),
@@ -85,9 +91,17 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     try:
         existing = resources.async_items()
         for _, url, label in static_paths:
-            if not any(item.get("url") == url for item in existing):
-                await resources.async_create_item({"res_type": "module", "url": url})
-                _LOGGER.info("Registered Viewpie Lovelace %s resource: %s", label, url)
+            versioned_url = f"{url}?v={version}"
+            current = next(
+                (item for item in existing if item.get("url", "").split("?", 1)[0] == url),
+                None,
+            )
+            if current is None:
+                await resources.async_create_item({"res_type": "module", "url": versioned_url})
+                _LOGGER.info("Registered Viewpie Lovelace %s resource: %s", label, versioned_url)
+            elif current.get("url") != versioned_url:
+                await resources.async_update_item(current["id"], {"url": versioned_url})
+                _LOGGER.info("Updated Viewpie Lovelace %s resource URL to %s", label, versioned_url)
     except (HomeAssistantError, ValueError, TypeError, AttributeError):
         _LOGGER.exception("Could not automatically register Viewpie Lovelace card resources")
     return True
