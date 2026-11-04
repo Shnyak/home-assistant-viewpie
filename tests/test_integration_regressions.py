@@ -94,6 +94,20 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertNotIn('RTSP URL', card)
         self.assertIn('this._fullscreenEntity.state !== "Grid"', card)
 
+    def test_three_viewpie_cards_have_separate_responsibilities(self):
+        selector = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        layout = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        manager = (INTEGRATION / "www" / "viewpie-camera-manager.js").read_text(encoding="utf-8")
+        self.assertIn("choice-list", selector)
+        self.assertIn("choice-row", selector)
+        self.assertIn("Переключить", selector)
+        self.assertNotIn("_renderCameraManager", layout)
+        self.assertNotIn("manage_camera", layout)
+        self.assertIn("Создать панель", layout)
+        self.assertIn("Добавить камеру", manager)
+        self.assertNotIn("_selectPanel", manager)
+        self.assertNotIn("_selectCamera", manager)
+
     def test_panel_and_camera_select_entities_are_mutually_exclusive(self):
         select_source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
         self.assertIn('if self.status.get("fullscreen_camera"):', select_source)

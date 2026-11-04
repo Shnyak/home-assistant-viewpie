@@ -70,9 +70,8 @@ class ViewpieViewSelector extends HTMLElement {
     this._status = "Переключаю панель…";
     this._render();
     try {
-      if (this._fullscreenEntity && this._fullscreenEntity.state !== "Grid") {
-        await this._callSelect(this._fullscreenEntity, "Grid");
-      }
+      // The integration coordinator clears fullscreen mode before activating
+      // the panel, so every caller (card, entity, or service) shares one rule.
       await this._callSelect(this._panelEntity, panelId);
       this._status = "Активна панель: " + panelId;
     } catch (err) {

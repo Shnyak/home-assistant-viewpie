@@ -146,6 +146,38 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
 
 
 
+async def test_panel_and_camera_entities_are_exclusive_when_controlled_directly(hass: HomeAssistant, mock_client):
+    entry = await _add_entry(hass)
+    registry = er.async_get(hass)
+    panel_entity_id = registry.async_get_entity_id("select", DOMAIN, f"{entry.entry_id}_panel")
+    fullscreen_entity_id = registry.async_get_entity_id("select", DOMAIN, f"{entry.entry_id}_fullscreen")
+    assert panel_entity_id and fullscreen_entity_id
+
+    # Simulate the Viewpie API reporting the fullscreen camera after selection.
+    status = mock_client.get_status.return_value
+    status["fullscreen_camera"] = "pool"
+    await hass.services.async_call(
+        "select", "select_option",
+        {"entity_id": fullscreen_entity_id, "option": "pool"}, blocking=True,
+    )
+    assert hass.states.get(fullscreen_entity_id).state == "pool"
+    assert hass.states.get(panel_entity_id).state == "unknown"
+
+    # Selecting a panel must leave fullscreen mode first, then activate that panel.
+    status["fullscreen_camera"] = None
+    status["active_panel"] = "night"
+    mock_client.grid.reset_mock()
+    mock_client.activate_panel.reset_mock()
+    await hass.services.async_call(
+        "select", "select_option",
+        {"entity_id": panel_entity_id, "option": "night"}, blocking=True,
+    )
+    mock_client.grid.assert_awaited_once()
+    mock_client.activate_panel.assert_awaited_once_with("night")
+    assert hass.states.get(panel_entity_id).state == "night"
+    assert hass.states.get(fullscreen_entity_id).state == "Grid"
+
+
 async def test_panel_management_reloads_config_after_successful_write(hass: HomeAssistant, mock_client):
     await _add_entry(hass)
     from unittest.mock import AsyncMock
