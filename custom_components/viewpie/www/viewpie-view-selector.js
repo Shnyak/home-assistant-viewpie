@@ -23,10 +23,16 @@ class ViewpieViewSelector extends HTMLElement {
       s.entity_id.endsWith("_fullscreen_camera") && Array.isArray(s.attributes?.options) && matchesEntry(s));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.entity_id.endsWith("_panel") && Array.isArray(s.attributes?.options) && matchesEntry(s));
+    const screenMatches = states.filter(s => s.entity_id.startsWith("switch.") &&
+      String(s.attributes?.friendly_name || "").trim().toLowerCase() === "экран" && matchesEntry(s));
+    const screen = screenMatches[0] || (screenMatches.length === 0
+      ? states.find(s => s.entity_id.startsWith("switch.") &&
+        String(s.attributes?.friendly_name || "").trim().toLowerCase() === "экран")
+      : null);
     const signature = JSON.stringify([
       fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
       panel?.entity_id, panel?.attributes?.options, panel?.state,
-      panel?.attributes?.panel_details
+      panel?.attributes?.panel_details, screen?.entity_id, screen?.state
     ]);
     if (signature !== this._signature) {
       this._signature = signature;
