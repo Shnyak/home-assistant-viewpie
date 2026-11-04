@@ -41,7 +41,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.4")
+        self.assertEqual(manifest["version"], "1.1.5")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -108,6 +108,17 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Добавить камеру", manager)
         self.assertNotIn("_selectPanel", manager)
         self.assertNotIn("_selectCamera", manager)
+
+    def test_panel_names_are_displayed_and_ids_are_generated_from_names(self):
+        selector = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        layout = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_panelLabel(panelId)", selector)
+        self.assertIn("this._panelLabel(id)", selector)
+        self.assertIn("Технический ID", layout)
+        self.assertIn("_slugifyPanelName", layout)
+        self.assertIn("_generatePanelId", layout)
+        self.assertIn('ё:"yo"', layout)
+        self.assertNotIn('ID новой панели', layout)
 
     def test_panel_and_camera_select_entities_are_mutually_exclusive(self):
         select_source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
