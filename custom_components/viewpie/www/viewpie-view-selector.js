@@ -31,6 +31,7 @@ class ViewpieViewSelector extends HTMLElement {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
       this._panelEntity = panel || null;
+      this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
       this._panels = panel ? panel.attributes.options : [];
       this._render();
@@ -45,6 +46,13 @@ class ViewpieViewSelector extends HTMLElement {
     });
     if (value) node.textContent = value;
     return node;
+  }
+
+  _panelLabel(panelId) {
+    const response = this._panelDetails?.[panelId];
+    const panel = response?.panel || response;
+    const name = typeof panel?.name === "string" ? panel.name.trim() : "";
+    return name || panelId;
   }
 
   _activeCamera() {
@@ -73,7 +81,7 @@ class ViewpieViewSelector extends HTMLElement {
       // The integration coordinator clears fullscreen mode before activating
       // the panel, so every caller (card, entity, or service) shares one rule.
       await this._callSelect(this._panelEntity, panelId);
-      this._status = "Активна панель: " + panelId;
+      this._status = "Активна панель: " + this._panelLabel(panelId);
     } catch (err) {
       this._status = "Не удалось включить панель: " + (err?.message || err);
     } finally {
@@ -149,7 +157,7 @@ class ViewpieViewSelector extends HTMLElement {
     this._panels.forEach(id => {
       const active = id === activePanel;
       const row = this._el("div", {class: "choice-row"});
-      row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, id));
+      row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, this._panelLabel(id)));
       const button = this._el("button", {class: active ? "active" : ""}, active ? "Активна" : "Переключить");
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy || active;
