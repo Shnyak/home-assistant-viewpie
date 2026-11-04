@@ -299,6 +299,34 @@ class ViewpieLayoutEditor extends HTMLElement {
     return regions;
   }
 
+  _cameraPlacementLabel(camera) {
+    const placements = [];
+    const details = this._panelDetails || {};
+    for (const [panelId, response] of Object.entries(details)) {
+      // GET /api/panels/{id} returns { id, panel: { layout, viewports, name } }.
+      const panel = response?.panel || response;
+      const rows = String(panel?.layout || "").trim().split(/\\r?\\n/).filter(Boolean)
+        .map(row => row.trim().split(/\\s+/));
+      const viewports = Array.isArray(panel?.viewports) ? panel.viewports : [];
+      for (const viewport of viewports) {
+        if (!(viewport?.feeds || []).includes(camera)) continue;
+        for (let r = 0; r < rows.length; r++) {
+          for (let col = 0; col < rows[r].length; col++) {
+            if (rows[r][col] === viewport.slot) placements.push(`${panelId} · ${r + 1}×${col + 1}`);
+          }
+        }
+      }
+    }
+    return placements.length ? `${camera} — ${placements.join(", ")}` : `${camera} — не назначена`;
+  }
+
+  _numberInput(value, min, max, callback) {
+    const input = this._el("input", { type: "number", min: String(min), max: String(max), value: String(value) });
+    input.value = String(value);
+    input.addEventListener("change", () => callback(this._clamp(input.value, min, max)));
+    return input;
+  }
+
   _loadPanelIntoEditor(panelId) {
     this._selectedPanel = panelId || "";
     if (!panelId) {
