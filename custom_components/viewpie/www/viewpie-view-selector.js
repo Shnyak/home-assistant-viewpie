@@ -37,7 +37,8 @@ class ViewpieViewSelector extends HTMLElement {
     if (signature !== this._signature) {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
-      this._panelEntity = panel || null;\n      this._screenEntity = screen || null;
+      this._panelEntity = panel || null;
+      this._screenEntity = screen || null;
       this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
       this._panels = panel ? panel.attributes.options : [];
@@ -159,7 +160,8 @@ class ViewpieViewSelector extends HTMLElement {
     style.textContent = `
       :host{display:block}ha-card{padding:16px}
       h2{font-size:1.2rem;margin:0 0 14px}
-      h3{font-size:1rem;margin:18px 0 9px}\n      .screen-control{margin:0 0 16px}
+      h3{font-size:1rem;margin:18px 0 9px}
+      .screen-control{margin:0 0 16px}
       .choice-list{display:flex;flex-direction:column;gap:7px}
       .choice-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
         padding:8px 10px;border:1px solid var(--divider-color);border-radius:9px}
