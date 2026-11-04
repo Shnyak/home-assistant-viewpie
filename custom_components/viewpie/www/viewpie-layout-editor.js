@@ -173,13 +173,17 @@ class ViewpieLayoutEditor extends HTMLElement {
         select.value = selectedCamera || "";
         select.addEventListener("change", () => {
           this._cells[key] = select.value;
+          // Update the preview immediately without waiting for Save.
+          this._render();
         });
         cell.append(select);
-        cell.append(this._el("small", {}, "Одна камера на ячейку; одну камеру разрешено повторять в других ячейках."));
         grid.append(cell);
       }
     }
-    card.append(grid);
+    const gridHelp = this._el("p", { class: "muted" },
+      "В каждой ячейке выбирается одна камера; одну и ту же камеру можно повторять в других ячейках.");
+    gridHelp.style.margin = "8px 0 0";
+    card.append(gridHelp, grid);
 
     const previewTitle = this._el("h3", {}, "Предпросмотр раскладки до сохранения");
     previewTitle.style.margin = "20px 0 8px";
