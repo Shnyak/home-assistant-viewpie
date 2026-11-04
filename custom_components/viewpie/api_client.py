@@ -23,6 +23,7 @@ from .const import (
     API_PANELS_ACTIVATE,
     API_PAUSE,
     API_RELOAD,
+    API_RESTART,
     API_RESUME,
     API_SETTINGS,
     API_STATUS,
@@ -218,6 +219,11 @@ class ViewpieApiClient:
 
     async def reload_config(self) -> dict[str, Any]:
         result = await self._request("POST", API_RELOAD)
+        return result if isinstance(result, dict) else {}
+
+    async def restart_host(self) -> dict[str, Any]:
+        """Request a protected host reboot; the API key is the restart bearer token."""
+        result = await self._request("POST", API_RESTART)
         return result if isinstance(result, dict) else {}
 
     async def test_connection(self) -> bool:
