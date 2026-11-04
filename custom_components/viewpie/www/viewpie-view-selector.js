@@ -8,6 +8,7 @@ class ViewpieViewSelector extends HTMLElement {
     this._cameras = [];
     this._panelEntity = null;
     this._fullscreenEntity = null;
+    this._screenEntity = null;
     this._busy = false;
     this._status = "";
     this._refreshing = false;
@@ -30,7 +31,7 @@ class ViewpieViewSelector extends HTMLElement {
     if (signature !== this._signature) {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
-      this._panelEntity = panel || null;
+      this._panelEntity = panel || null;\n      this._screenEntity = screen || null;
       this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
       this._panels = panel ? panel.attributes.options : [];
@@ -70,6 +71,25 @@ class ViewpieViewSelector extends HTMLElement {
       entity_id: entity.entity_id,
       option
     });
+  }
+
+  async _toggleScreen() {
+    if (this._busy || !this._hass || !this._screenEntity) return;
+    this._busy = true;
+    const turnOn = this._screenEntity.state !== "on";
+    this._status = turnOn ? "Включаю экран…" : "Выключаю экран…";
+    this._render();
+    try {
+      await this._hass.callService("switch", turnOn ? "turn_on" : "turn_off", {
+        entity_id: this._screenEntity.entity_id
+      });
+      this._status = turnOn ? "Экран включён." : "Экран выключен.";
+    } catch (err) {
+      this._status = "Не удалось переключить экран: " + (err?.message || err);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
   }
 
   async _choosePanel(panelId) {
@@ -133,7 +153,7 @@ class ViewpieViewSelector extends HTMLElement {
     style.textContent = `
       :host{display:block}ha-card{padding:16px}
       h2{font-size:1.2rem;margin:0 0 14px}
-      h3{font-size:1rem;margin:18px 0 9px}
+      h3{font-size:1rem;margin:18px 0 9px}\n      .screen-control{margin:0 0 16px}
       .choice-list{display:flex;flex-direction:column;gap:7px}
       .choice-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
         padding:8px 10px;border:1px solid var(--divider-color);border-radius:9px}
