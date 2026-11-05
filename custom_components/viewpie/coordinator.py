@@ -50,16 +50,24 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.client.grid()
         await self.async_refresh()
 
+    async def _async_ensure_screen_on(self) -> None:
+        """Wake the HDMI output before changing the visible camera or panel."""
+        if bool((self.data or {}).get("paused", False)):
+            await self.client.resume()
+            await self.async_request_refresh()
+
     async def async_fullscreen(self, camera: str, duration: Optional[int] = None) -> None:
-        """Make a camera the sole active output choice."""
+        """Wake the screen if needed, then show a camera or return to the grid."""
         if camera == OPTION_GRID:
             await self.async_grid()
             return
+        await self._async_ensure_screen_on()
         await self.client.fullscreen(camera, duration)
         await self.async_refresh()
 
     async def async_activate_panel(self, panel_id: str) -> None:
-        """Make a panel the sole active output choice."""
+        """Wake the screen if needed, then activate the requested panel."""
+        await self._async_ensure_screen_on()
         # Viewpie retains the selected panel as a background scene in fullscreen.
         # Leave fullscreen before activating a panel so the visible output and
         # Home Assistant entity state cannot disagree.
