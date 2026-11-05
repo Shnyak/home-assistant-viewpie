@@ -1,19 +1,22 @@
 from pathlib import Path
 from PIL import Image
 
-path = Path("custom_components/viewpie/brand/icon.png")
-with Image.open(path) as source:
+brand = Path("custom_components/viewpie/brand")
+icon_path = brand / "icon.png"
+
+with Image.open(icon_path) as source:
     image = source.convert("RGBA")
-    alpha = image.getchannel("A")
-    bounds = alpha.getbbox()
+    bounds = image.getchannel("A").getbbox()
     if bounds is None:
         raise SystemExit("brand icon is fully transparent")
-    cropped = image.crop(bounds)
-    # Keep the original artwork and colors intact. Only remove transparent
-    # canvas margins, then scale the same artwork to the 256x256 brand canvas.
-    cropped.thumbnail((256, 256), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-    x = (256 - cropped.width) // 2
-    y = (256 - cropped.height) // 2
-    canvas.alpha_composite(cropped, (x, y))
-    canvas.save(path, format="PNG", optimize=True)
+    artwork = image.crop(bounds)
+
+    # Keep the approved artwork pixel-for-pixel in shape and color. The
+    # square icon remains untouched; the Marketplace logo gets its own
+    # landscape canvas, trimmed to the artwork and scaled to the full
+    # supported shortest-side size.
+    for filename, shortest_side in (("logo.png", 256), ("logo@2x.png", 512)):
+        scale = shortest_side / min(artwork.width, artwork.height)
+        size = (round(artwork.width * scale), round(artwork.height * scale))
+        logo = artwork.resize(size, Image.Resampling.LANCZOS)
+        logo.save(brand / filename, format="PNG", optimize=True)
