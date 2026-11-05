@@ -23,12 +23,22 @@ class ViewpieViewSelector extends HTMLElement {
       s.entity_id.endsWith("_fullscreen_camera") && Array.isArray(s.attributes?.options) && matchesEntry(s));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.entity_id.endsWith("_panel") && Array.isArray(s.attributes?.options) && matchesEntry(s));
-    const screenMatches = states.filter(s => s.entity_id.startsWith("switch.") &&
-      String(s.attributes?.friendly_name || "").trim().toLowerCase() === "экран" && matchesEntry(s));
-    const screen = screenMatches[0] || (screenMatches.length === 0
-      ? states.find(s => s.entity_id.startsWith("switch.") &&
-        String(s.attributes?.friendly_name || "").trim().toLowerCase() === "экран")
-      : null);
+    // With has_entity_name enabled, HA composes friendly_name from the
+    // device name and entity name (for example "Viewpie (host) Экран").
+    // Match the dedicated screen switch by its stable icon/name instead of
+    // requiring friendly_name to equal the bare word "Экран".
+    const screenCandidates = states.filter(s => s.entity_id.startsWith("switch.") &&
+      matchesEntry(s) && (
+        s.attributes?.icon === "mdi:pause-circle" ||
+        String(s.attributes?.friendly_name || "").trim().toLowerCase().includes("экран") ||
+        s.entity_id.endsWith("_pause")
+      ));
+    const screen = screenCandidates.sort((a, b) => {
+      const score = s => (s.attributes?.icon === "mdi:pause-circle" ? 4 : 0) +
+        (String(s.attributes?.friendly_name || "").trim().toLowerCase().includes("экран") ? 2 : 0) +
+        (s.entity_id.endsWith("_pause") ? 1 : 0);
+      return score(b) - score(a);
+    })[0] || null;
     const signature = JSON.stringify([
       fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
       panel?.entity_id, panel?.attributes?.options, panel?.state,
