@@ -48,6 +48,8 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
         self.assertTrue((INTEGRATION / "brand" / "icon.png").is_file())
+        self.assertTrue((INTEGRATION / "brand" / "logo.png").is_file())
+        self.assertTrue((INTEGRATION / "brand" / "logo@2x.png").is_file())
 
 
     def test_layout_editor_preserves_other_selected_cameras_when_replacing_one(self):
