@@ -1,0 +1,34 @@
+name: Crop approved brand icon
+on:
+  push:
+    branches:
+      - fix/approved-logo-crop-v1.2.1
+    paths:
+      - scripts/crop_brand_icon.py
+      - custom_components/viewpie/brand/icon.png
+      - .github/workflows/crop-approved-brand-icon.yml
+permissions:
+  contents: write
+jobs:
+  crop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/approved-logo-crop-v1.2.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python -m pip install pillow
+      - run: python scripts/crop_brand_icon.py
+      - name: Commit cropped PNG without changing artwork
+        run: |
+          if git diff --quiet -- custom_components/viewpie/brand/icon.png; then
+            echo "PNG already has no excess transparent margin"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/viewpie/brand/icon.png
+          git commit -m "Crop transparent margins from approved brand icon"
+          git push
