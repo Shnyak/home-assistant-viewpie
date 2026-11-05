@@ -43,7 +43,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.8")
+        self.assertEqual(manifest["version"], "1.1.9")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -183,6 +183,22 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         source = (INTEGRATION / "number.py").read_text(encoding="utf-8")
         setup = source[source.index("async def async_setup_entry"):source.index("class ViewpieNumberBase")]
         self.assertNotIn("ViewpieRotationIntervalNumber(coordinator)", setup)
+
+    def test_view_selector_finds_screen_switch_with_composed_friendly_name(self):
+        card = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        self.assertIn('s.attributes?.icon === "mdi:pause-circle"', card)
+        self.assertIn('.toLowerCase().includes("экран")', card)
+        self.assertIn('s.entity_id.endsWith("_pause")', card)
+        self.assertNotIn('friendly_name || "").trim().toLowerCase() === "экран"', card)
+
+    def test_camera_and_panel_selection_wake_a_paused_screen_first(self):
+        source = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        wake = source[source.index("    async def _async_ensure_screen_on"):source.index("    async def async_update_settings")]
+        self.assertIn('get("paused", False)', wake)
+        self.assertIn("await self.client.resume()", wake)
+        self.assertLess(wake.index("await self._async_ensure_screen_on()"), wake.index("await self.client.fullscreen(camera, duration)"))
+        self.assertLess(wake.index("await self._async_ensure_screen_on()"), wake.index("await self.client.grid()"))
+        self.assertLess(wake.index("await self.client.grid()"), wake.index("await self.client.activate_panel(panel_id)"))
 
     def test_screen_switch_uses_screen_on_semantics(self):
         source = (INTEGRATION / "switch.py").read_text(encoding="utf-8")
