@@ -33,6 +33,20 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except Exception as err:
                 _LOGGER.debug("Could not fetch panel %s details: %s", panel_id, err)
         data["panel_details"] = panel_details
+
+        # Keep the registered Viewpie device version in sync with every poll.
+        # The initial DeviceInfo is only used when entities are first added;
+        # later API version changes must explicitly update the device registry.
+        software_version = data.get("software_version") or data.get("viewpie_version") or data.get("version")
+        if software_version:
+            from homeassistant.helpers import device_registry as dr
+
+            device_registry = dr.async_get(self.hass)
+            device = device_registry.async_get_device({(DOMAIN, self.entry.entry_id)})
+            if device is not None and device.sw_version != str(software_version):
+                device_registry.async_update_device(
+                    device.id, sw_version=str(software_version)
+                )
         active = data.get("active_panel")
         if active and str(active) not in data["panels"]: data["panels"].append(str(active))
         try:
