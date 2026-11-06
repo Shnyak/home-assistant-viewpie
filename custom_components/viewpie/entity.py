@@ -28,9 +28,9 @@ class ViewpieEntity(CoordinatorEntity[ViewpieCoordinator]):
     def device_info(self) -> DeviceInfo:
         """Return live device metadata, including the latest reported software version.
 
-        Home Assistant reads this property when the entity is added and again
-        when a coordinator update writes entity state. Keeping it dynamic lets
-        the device registry replace stale sw_version values after every poll.
+        This supplies the latest version when the entity is added. Subsequent
+        version changes are synchronized explicitly by the coordinator through
+        the Home Assistant device registry.
         """
         status = self.coordinator.data or {}
         software_version = (
