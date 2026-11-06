@@ -20,6 +20,20 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
                 self.assertIn(f'"{platform}"', constants)
                 self.assertTrue((INTEGRATION / f"{platform}.py").is_file())
 
+    def test_lovelace_cards_discover_selects_by_stable_entity_icons(self):
+        expected = {
+            "viewpie-layout-editor.js": ("mdi:view-dashboard", "mdi:fullscreen"),
+            "viewpie-camera-manager.js": ("mdi:fullscreen",),
+            "viewpie-view-selector.js": ("mdi:view-dashboard", "mdi:fullscreen"),
+        }
+        for filename, icons in expected.items():
+            source = (INTEGRATION / "www" / filename).read_text(encoding="utf-8")
+            with self.subTest(card=filename):
+                for icon in icons:
+                    self.assertIn(f'attributes?.icon === "{icon}"', source)
+                self.assertNotIn('_fullscreen_camera', source)
+                self.assertNotIn('s.entity_id.includes(this._entryId)', source)
+
     def test_camera_entities_are_created_dynamically(self):
         source = (INTEGRATION / "binary_sensor.py").read_text(encoding="utf-8")
         self.assertIn("coordinator.async_add_listener(add_camera_entities)", source)
@@ -43,7 +57,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.2.3")
+        self.assertEqual(manifest["version"], "1.2.4")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)

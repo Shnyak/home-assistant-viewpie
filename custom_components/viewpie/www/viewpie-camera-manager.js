@@ -15,9 +15,8 @@ class ViewpieCameraManager extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     const states = Object.values(hass?.states || {});
-    const matchesEntry = s => !this._entryId || s.entity_id.includes(this._entryId);
     const fullscreen = states.find(s => s.entity_id.startsWith("select.") &&
-      s.entity_id.endsWith("_fullscreen_camera") && s.attributes?.options && matchesEntry(s));
+      s.attributes?.icon === "mdi:fullscreen" && Array.isArray(s.attributes?.options));
     const signature = JSON.stringify([fullscreen?.entity_id, fullscreen?.attributes?.options]);
     if (signature !== this._signature) {
       this._signature = signature;

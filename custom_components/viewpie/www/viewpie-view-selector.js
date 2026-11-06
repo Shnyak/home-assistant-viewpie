@@ -18,17 +18,15 @@ class ViewpieViewSelector extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     const states = Object.values(hass?.states || {});
-    const matchesEntry = s => !this._entryId || s.entity_id.includes(this._entryId);
     const fullscreen = states.find(s => s.entity_id.startsWith("select.") &&
-      s.entity_id.endsWith("_fullscreen_camera") && Array.isArray(s.attributes?.options) && matchesEntry(s));
+      s.attributes?.icon === "mdi:fullscreen" && Array.isArray(s.attributes?.options));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
-      s.entity_id.endsWith("_panel") && Array.isArray(s.attributes?.options) && matchesEntry(s));
+      s.attributes?.icon === "mdi:view-dashboard" && Array.isArray(s.attributes?.options));
     // With has_entity_name enabled, HA composes friendly_name from the
     // device name and entity name (for example "Viewpie (host) Экран").
     // Match the dedicated screen switch by its stable icon/name instead of
     // requiring friendly_name to equal the bare word "Экран".
-    const screenCandidates = states.filter(s => s.entity_id.startsWith("switch.") &&
-      matchesEntry(s) && (
+    const screenCandidates = states.filter(s => s.entity_id.startsWith("switch.") && (
         s.attributes?.icon === "mdi:pause-circle" ||
         String(s.attributes?.friendly_name || "").trim().toLowerCase().includes("экран") ||
         s.entity_id.endsWith("_pause")
