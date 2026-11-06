@@ -20,27 +20,34 @@ class ViewpieEntity(CoordinatorEntity[ViewpieCoordinator]):
     def __init__(self, coordinator: ViewpieCoordinator) -> None:
         super().__init__(coordinator)
         host = coordinator.entry.data.get(CONF_HOST, "viewpie")
-        port = coordinator.entry.data.get(CONF_PORT, DEFAULT_PORT)
+        self._host = host
+        self._port = coordinator.entry.data.get(CONF_PORT, DEFAULT_PORT)
         self._attr_suggested_entity_id = f"{DOMAIN}_{slugify(host)}"
 
-        # This is the Viewpie device, not the HA integration package.
-        # Only publish a software version when the device API reports one.
-        status = coordinator.data or {}
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return live device metadata, including the latest reported software version.
+
+        This supplies the latest version when the entity is added. Subsequent
+        version changes are synchronized explicitly by the coordinator through
+        the Home Assistant device registry.
+        """
+        status = self.coordinator.data or {}
         software_version = (
             status.get("software_version")
             or status.get("viewpie_version")
             or status.get("version")
         )
-        device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": f"{DEFAULT_NAME} ({host})",
+        device_info: dict[str, object] = {
+            "identifiers": {(DOMAIN, self.coordinator.entry.entry_id)},
+            "name": f"{DEFAULT_NAME} ({self._host})",
             "manufacturer": "Viewpie",
             "model": "Viewpie camera wall",
-            "configuration_url": f"http://{host}:{port}",
+            "configuration_url": f"http://{self._host}:{self._port}",
         }
         if software_version:
             device_info["sw_version"] = str(software_version)
-        self._attr_device_info = DeviceInfo(**device_info)
+        return DeviceInfo(**device_info)
 
     @property
     def status(self) -> dict:
