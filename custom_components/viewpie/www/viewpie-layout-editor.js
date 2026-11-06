@@ -33,15 +33,13 @@ class ViewpieLayoutEditor extends HTMLElement {
     const states = Object.values(hass?.states || {});
     const panel = states.find(s =>
       s.entity_id.startsWith("select.") &&
-      s.entity_id.endsWith("_panel") &&
-      s.attributes?.options &&
-      (!this._entryId || s.entity_id.includes(this._entryId))
+      s.attributes?.icon === "mdi:view-dashboard" &&
+      Array.isArray(s.attributes?.options)
     );
     const camera = states.find(s =>
       s.entity_id.startsWith("select.") &&
-      s.entity_id.endsWith("_fullscreen_camera") &&
-      s.attributes?.options &&
-      (!this._entryId || s.entity_id.includes(this._entryId))
+      s.attributes?.icon === "mdi:fullscreen" &&
+      Array.isArray(s.attributes?.options)
     );
     return JSON.stringify([
       panel?.entity_id, panel?.state, panel?.attributes?.options,
@@ -56,15 +54,13 @@ class ViewpieLayoutEditor extends HTMLElement {
       const states = Object.values(this._hass.states || {});
       const panelSelect = states.find(s =>
         s.entity_id.startsWith("select.") &&
-        s.entity_id.endsWith("_panel") &&
-        s.attributes?.options &&
-        (!this._entryId || s.entity_id.includes(this._entryId))
+        s.attributes?.icon === "mdi:view-dashboard" &&
+      Array.isArray(s.attributes?.options)
       );
       const cameraSelect = states.find(s =>
         s.entity_id.startsWith("select.") &&
-        s.entity_id.endsWith("_fullscreen_camera") &&
-        s.attributes?.options &&
-        (!this._entryId || s.entity_id.includes(this._entryId))
+        s.attributes?.icon === "mdi:fullscreen" &&
+      Array.isArray(s.attributes?.options)
       );
       this._panelSelectEntity = panelSelect?.entity_id || "";
       this._panelDetails = panelSelect?.attributes?.panel_details || {};
