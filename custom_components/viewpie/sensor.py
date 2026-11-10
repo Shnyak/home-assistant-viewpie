@@ -163,10 +163,18 @@ def _decoder_counts(coordinator: ViewpieCoordinator) -> dict[str, int]:
     """Count cameras currently producing frames through each decoder path."""
     entries = _decoder_entries(coordinator)
     active = [item for item in entries if item.get("state") == "active"]
+    unresolved = [
+        item for item in entries
+        if item.get("state") != "paused"
+        and (
+            item.get("state") != "active"
+            or item.get("mode") not in ("hardware", "software")
+        )
+    ]
     return {
         "hardware": sum(item.get("mode") == "hardware" for item in active),
         "software": sum(item.get("mode") == "software" for item in active),
-        "unknown": sum(item.get("mode") not in ("hardware", "software") for item in active),
+        "unknown": len(unresolved),
     }
 
 
