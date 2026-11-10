@@ -18,6 +18,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import slugify
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -34,6 +35,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up viewpie sensor entities."""
     coordinator: ViewpieCoordinator = hass.data[DOMAIN][entry.entry_id].coordinator
+    cameras = coordinator.data.get("cameras", []) if coordinator.data else []
     async_add_entities(
         [
             ViewpieCpuTempSensor(coordinator),
@@ -48,6 +50,11 @@ async def async_setup_entry(
             ViewpieHardwareDecoderCountSensor(coordinator),
             ViewpieSoftwareDecoderCountSensor(coordinator),
             ViewpieUnknownDecoderCountSensor(coordinator),
+            *[
+                ViewpieCameraDecoderSensor(coordinator, camera)
+                for camera in cameras
+                if isinstance(camera, str) and camera
+            ],
         ]
     )
 
@@ -250,3 +257,41 @@ class ViewpieUnknownDecoderCountSensor(ViewpieDecoderCountSensor):
     _attr_name = "Unknown decoder status"
     _attr_icon = "mdi:help-circle-outline"
     _mode = "unknown"
+
+
+class ViewpieCameraDecoderSensor(ViewpieEntity, SensorEntity):
+    """Actual decoder and runtime state for one configured camera."""
+
+    _attr_icon = "mdi:video-wireless"
+
+    def __init__(self, coordinator: ViewpieCoordinator, camera: str) -> None:
+        super().__init__(coordinator)
+        self._camera = camera
+        self._attr_name = f"{camera} decoder"
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_camera_decoder_{slugify(camera)}"
+        )
+
+    def _camera_status(self) -> dict[str, Any]:
+        for item in _decoder_entries(self.coordinator):
+            if item["camera"] == self._camera:
+                return item
+        return {"camera": self._camera, "state": "unknown"}
+
+    @property
+    def native_value(self) -> str:
+        status = self._camera_status()
+        mode = status.get("mode") or "unknown"
+        state = status.get("state") or "unknown"
+        return f"{mode} ({state})"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        status = self._camera_status()
+        return {
+            "camera": self._camera,
+            "decoder": status.get("decoder"),
+            "mode": status.get("mode"),
+            "state": status.get("state", "unknown"),
+            "fallback_reason": status.get("fallback_reason"),
+        }
