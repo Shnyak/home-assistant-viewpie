@@ -44,6 +44,10 @@ async def async_setup_entry(
             ViewpieActivePanelSensor(coordinator),
             ViewpieSoftwareVersionSensor(coordinator),
             ViewpieSoftwareBuildDateSensor(coordinator),
+            ViewpieDecoderStatusSensor(coordinator),
+            ViewpieHardwareDecoderCountSensor(coordinator),
+            ViewpieSoftwareDecoderCountSensor(coordinator),
+            ViewpieUnknownDecoderCountSensor(coordinator),
         ]
     )
 
@@ -142,3 +146,99 @@ class ViewpieSoftwareBuildDateSensor(ViewpieSensorBase):
     _attr_name = "Software build date"
     _attr_icon = "mdi:calendar-check"
     _key = "software_build_date"
+
+
+def _decoder_entries(coordinator: ViewpieCoordinator) -> list[dict[str, Any]]:
+    """Return validated per-camera decoder telemetry from Viewpie."""
+    status = (coordinator.data or {}).get("decoder_status", [])
+    if not isinstance(status, list):
+        return []
+    return [
+        item for item in status
+        if isinstance(item, dict) and isinstance(item.get("camera"), str)
+    ]
+
+
+def _decoder_counts(coordinator: ViewpieCoordinator) -> dict[str, int]:
+    """Count cameras currently producing frames through each decoder path."""
+    entries = _decoder_entries(coordinator)
+    active = [item for item in entries if item.get("state") == "active"]
+    return {
+        "hardware": sum(item.get("mode") == "hardware" for item in active),
+        "software": sum(item.get("mode") == "software" for item in active),
+        "unknown": sum(item.get("mode") not in ("hardware", "software") for item in active),
+    }
+
+
+class ViewpieDecoderStatusSensor(ViewpieEntity, SensorEntity):
+    """Summary of actual decoder paths, with details for every camera."""
+
+    _attr_name = "Decoder status"
+    _attr_icon = "mdi:chip"
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_decoder_status"
+
+    @property
+    def native_value(self) -> str:
+        counts = _decoder_counts(self.coordinator)
+        total = sum(counts.values())
+        if total == 0:
+            return "No active decoder data"
+        return (
+            f"{counts['hardware']} hardware / "
+            f"{counts['software']} software / "
+            f"{counts['unknown']} unknown"
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        counts = _decoder_counts(self.coordinator)
+        cameras = {}
+        for item in _decoder_entries(self.coordinator):
+            camera = item["camera"]
+            cameras[camera] = {
+                "decoder": item.get("decoder"),
+                "mode": item.get("mode"),
+                "state": item.get("state", "unknown"),
+                "fallback_reason": item.get("fallback_reason"),
+            }
+        return {
+            "hardware_count": counts["hardware"],
+            "software_count": counts["software"],
+            "unknown_count": counts["unknown"],
+            "cameras": cameras,
+        }
+
+
+class ViewpieDecoderCountSensor(ViewpieEntity, SensorEntity):
+    """Base class for live hardware/software decoder counts."""
+
+    _mode: str
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_decoder_{self._mode}"
+
+    @property
+    def native_value(self) -> int:
+        return _decoder_counts(self.coordinator)[self._mode]
+
+
+class ViewpieHardwareDecoderCountSensor(ViewpieDecoderCountSensor):
+    _attr_name = "Hardware decoders"
+    _attr_icon = "mdi:chip"
+    _mode = "hardware"
+
+
+class ViewpieSoftwareDecoderCountSensor(ViewpieDecoderCountSensor):
+    _attr_name = "Software decoders"
+    _attr_icon = "mdi:cpu-64-bit"
+    _mode = "software"
+
+
+class ViewpieUnknownDecoderCountSensor(ViewpieDecoderCountSensor):
+    _attr_name = "Unknown decoder status"
+    _attr_icon = "mdi:help-circle-outline"
+    _mode = "unknown"
