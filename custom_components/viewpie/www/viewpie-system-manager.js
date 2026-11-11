@@ -27,6 +27,7 @@ class ViewpieSystemManager extends HTMLElement {
       ["Load average (1m)", ["load average 1m"]],
       ["Latest version", ["latest version"]],
       ["Update available", ["update available"]],
+      ["Update process", ["update process"]],
       ["Paused", ["paused"]],
       ["Screen off", ["screen off"]],
       ["Software build date", ["software build date"]],
@@ -97,6 +98,13 @@ class ViewpieSystemManager extends HTMLElement {
         color:var(--text-primary-color,#fff);cursor:pointer;width:100%;margin-top:16px}
       button:disabled{opacity:.55;cursor:default}
       .hint{margin-top:10px;color:var(--secondary-text-color);font-size:.88rem}
+      .terminal{margin-top:12px;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:#101418;color:#d8e2dc}
+      .terminal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;background:#20282e;font-size:.82rem}
+      .terminal-state{font-weight:600}
+      .terminal pre{margin:0;padding:12px;max-height:300px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
+        font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#d8e2dc}
+      .terminal .copy{width:auto;margin:0;padding:6px 10px;background:#39464e;color:#fff;font-size:.8rem}
+      .terminal-empty{color:#aeb9b3}
     `;
     const card = document.createElement("ha-card");
     const title = document.createElement("h2");
@@ -209,7 +217,57 @@ class ViewpieSystemManager extends HTMLElement {
       updateHint.textContent = "Проверка ещё не выполнялась. Нажмите «Проверить обновления», чтобы получить актуальный результат.";
     }
 
-    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint);
+    const journalEntity = this._rows?.find(row => row.label === "Update process")?.state;
+    const journal = journalEntity?.attributes || {};
+    const terminal = document.createElement("section");
+    terminal.className = "terminal";
+    const terminalHead = document.createElement("div");
+    terminalHead.className = "terminal-head";
+    const terminalState = document.createElement("span");
+    terminalState.className = "terminal-state";
+    terminalState.textContent = journal.status === "running"
+      ? `● Выполняется: ${journal.phase || "подготовка"}`
+      : journal.status === "failed"
+        ? `● Ошибка: ${journal.phase || "этап неизвестен"}`
+        : journal.status === "success"
+          ? "● Обновление завершено"
+          : "● Журнал обновления";
+    const copyLog = document.createElement("button");
+    copyLog.type = "button";
+    copyLog.className = "copy";
+    copyLog.textContent = "Копировать журнал";
+    copyLog.addEventListener("click", async () => {
+      const report = [
+        "Viewpie update diagnostic report",
+        `status: ${journal.status || "unknown"}`,
+        `phase: ${journal.phase || "unknown"}`,
+        `message: ${journal.message || ""}`,
+        `error: ${journal.error || ""}`,
+        `version: ${journal.version || ""}`,
+        `architecture: ${journal.architecture || ""}`,
+        `started_at: ${journal.started_at || ""}`,
+        `updated_at: ${journal.updated_at || ""}`,
+        `finished_at: ${journal.finished_at || ""}`,
+        `exit_code: ${journal.exit_code ?? ""}`,
+        "",
+        "----- journal -----",
+        journal.log || "Журнал пока пуст.",
+      ].join("\\n");
+      try {
+        await navigator.clipboard.writeText(report);
+        copyLog.textContent = "Скопировано";
+      } catch (err) {
+        copyLog.textContent = "Не удалось скопировать";
+        window.alert("Браузер не разрешил копирование. Откройте атрибут log датчика Update process и скопируйте его вручную.");
+      }
+    });
+    terminalHead.append(terminalState, copyLog);
+    const terminalLog = document.createElement("pre");
+    terminalLog.textContent = journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
+    terminalLog.className = journal.log ? "" : "terminal-empty";
+    terminal.append(terminalHead, terminalLog);
+
+    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint, terminal);
     root.append(style, card);
   }
 
