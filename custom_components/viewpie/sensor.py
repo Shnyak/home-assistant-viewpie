@@ -24,6 +24,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import ViewpieCoordinator
 from .entity import ViewpieEntity
+from .update_utils import BOOTSTRAP_COMMAND, requires_bootstrap
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -342,11 +343,17 @@ class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        installed_version = self.status.get("installed_version") or self.status.get("software_version")
+        bootstrap_required = bool(
+            self.status.get("update_available") and requires_bootstrap(installed_version)
+        )
         return {
             "latest_version": self.status.get("latest_version"),
-            "installed_version": self.status.get("installed_version"),
+            "installed_version": installed_version,
+            "bootstrap_required": bootstrap_required,
+            "bootstrap_command": BOOTSTRAP_COMMAND if bootstrap_required else None,
             "architecture": self.status.get("architecture"),
-            "can_install": bool(self.status.get("can_install", False)),
+            "can_install": bool(self.status.get("can_install", False)) and not bootstrap_required,
             "package_available": bool(self.status.get("package_available", False)),
             "checksum_available": bool(self.status.get("checksum_available", False)),
             "release_url": self.status.get("release_url"),
