@@ -225,7 +225,7 @@ class ViewpieSystemManager extends HTMLElement {
     terminalHead.className = "terminal-head";
     const terminalState = document.createElement("span");
     terminalState.className = "terminal-state";
-    const progress = Number.isFinite(Number(journal.progress_percent))
+    const progress = journal.progress_percent !== null && journal.progress_percent !== undefined && Number.isFinite(Number(journal.progress_percent))
       ? ` — ${Number(journal.progress_percent)}%` : "";
     terminalState.textContent = journal.status === "running"
       ? `● Выполняется: ${journal.phase || "подготовка"}${progress}`
