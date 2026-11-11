@@ -264,13 +264,16 @@ def _register_services(hass: HomeAssistant) -> None:
         else:
             url = ""
         fullscreen_url = call.data.get("fullscreen_url")
+        decoder = call.data.get("decoder", "auto")
+        if decoder not in ("auto", "hardware", "software"):
+            raise HomeAssistantError("decoder must be auto, hardware, or software")
         for coordinator in _iter_coordinators(hass, call, management=True):
             client = coordinator.client
             changed_panels: list[tuple[str, dict[str, Any]]] = []
             if operation == "create":
-                await client.create_camera(name, url, fullscreen_url)
+                await client.create_camera(name, url, fullscreen_url, decoder)
             elif operation == "update":
-                await client.update_camera(name, url, fullscreen_url)
+                await client.update_camera(name, url, fullscreen_url, decoder)
             else:
                 # Clear every viewport using this camera before asking Viewpie
                 # to delete it. Keep originals for best-effort rollback.
@@ -340,6 +343,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     "name": name,
                     "url": str(camera.get("url") or ""),
                     "fullscreen_url": str(camera.get("fullscreen_url") or ""),
+                    "decoder": str(camera.get("decoder") or "auto"),
                 }
         raise HomeAssistantError(f"Camera '{name}' was not found")
 
