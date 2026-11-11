@@ -136,7 +136,8 @@ manage_panel:
       required: false
       description: YAML/JSON list, for example [{"slot":"a","feeds":["yard"]}]
       selector:
-        object:
+        text:
+          multiple: true
     entry_id:
       required: false
       advanced: true
