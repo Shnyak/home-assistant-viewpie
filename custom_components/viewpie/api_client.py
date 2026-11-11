@@ -118,10 +118,15 @@ class ViewpieApiClient:
                             detail = str(payload.get("error") or payload.get("message") or detail)
                     except (json.JSONDecodeError, ValueError):
                         pass
-                    _LOGGER.error(
-                        "viewpie request rejected (%s %s): HTTP %s: %s",
-                        method, url, response.status, detail or response.reason,
-                    )
+                    if not (
+                        method == "GET"
+                        and path == API_UPDATE_STATUS
+                        and response.status == 404
+                    ):
+                        _LOGGER.error(
+                            "viewpie request rejected (%s %s): HTTP %s: %s",
+                            method, url, response.status, detail or response.reason,
+                        )
                     raise ViewpieConnectionError(
                         f"Viewpie returned HTTP {response.status}: {detail or response.reason}"
                     )
