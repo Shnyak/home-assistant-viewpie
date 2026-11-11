@@ -260,7 +260,20 @@ class ViewpieSystemManager extends HTMLElement {
         journal.log || "Журнал пока пуст.",
       ].join("\n");
       try {
-        await navigator.clipboard.writeText(report);
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(report);
+        } else {
+          const fallback = document.createElement("textarea");
+          fallback.value = report;
+          fallback.setAttribute("readonly", "");
+          fallback.style.position = "fixed";
+          fallback.style.opacity = "0";
+          document.body.appendChild(fallback);
+          fallback.select();
+          const copied = document.execCommand("copy");
+          fallback.remove();
+          if (!copied) throw new Error("Clipboard API is unavailable");
+        }
         copyLog.textContent = "Скопировано";
       } catch (err) {
         copyLog.textContent = "Не удалось скопировать";
