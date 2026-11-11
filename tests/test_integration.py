@@ -99,6 +99,20 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.activate_panel.assert_awaited_with("night")
 
+    startup_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_startup_panel"
+    )
+    assert startup_entity_id is not None
+    startup = hass.states.get(startup_entity_id)
+    assert startup is not None
+    assert startup.state == "outside"
+    assert "night" in startup.attributes["options"]
+    await hass.services.async_call(
+        "select", "select_option",
+        {"entity_id": startup.entity_id, "option": "night"}, blocking=True,
+    )
+    mock_client.update_settings.assert_awaited_with(startup_panel="night")
+
     fullscreen_entity_id = registry.async_get_entity_id(
         "select", DOMAIN, f"{entry.entry_id}_fullscreen"
     )
@@ -338,3 +352,19 @@ async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, moc
 
     await install_button.async_press()
     mock_client.install_update.assert_awaited_once_with("test-restart-token")
+
+
+async def test_panel_order_service_persists_order(hass: HomeAssistant, mock_client):
+    entry = await _add_entry(hass)
+    mock_client.reorder_panels = AsyncMock(return_value={})
+    await hass.services.async_call(
+        DOMAIN, "reorder_panels",
+        {
+            "entry_id": entry.entry_id,
+            "order": ["night", "outside", "inside"],
+        },
+        blocking=True,
+    )
+    mock_client.reorder_panels.assert_awaited_once_with(
+        ["night", "outside", "inside"]
+    )
