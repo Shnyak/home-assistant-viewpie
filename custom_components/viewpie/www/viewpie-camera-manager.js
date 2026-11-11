@@ -66,7 +66,7 @@ class ViewpieCameraManager extends HTMLElement {
     const card=this._el("ha-card");
     card.append(this._el("h2",{},this._config.title || "Управление камерами Viewpie"));
     card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменения применяются командой Reload config."));
-    card.append(this._el("p",{class:"muted"},"Автоматически заполняет свободные аппаратные слоты по имени камеры после явно выбранных Hardware-камер; Software всегда декодируется процессором."));
+    card.append(this._el("p",{class:"muted"},"Автоматически заполняет свободные аппаратные слоты по имени камеры после явно выбранных Hardware-камер; Software всегда декодируется процессором. Отдельный основной поток в полноэкранном режиме также использует программное декодирование, чтобы не занимать слот сетки."));
     const fields=this._el("div",{class:"fields"});
     const select=this._el("select");
     select.append(this._el("option",{value:""},"Новая камера — добавить"));
@@ -103,7 +103,7 @@ class ViewpieCameraManager extends HTMLElement {
     [["auto","Автоматически (до лимита)"] ,["hardware","Аппаратное декодирование"],["software","Программное декодирование"]].forEach(([value,label])=>decoder.append(this._el("option",{value},label)));
     decoder.value=this._cameraDecoder;
     decoder.addEventListener("change",()=>this._cameraDecoder=decoder.value);
-    fields.append(this._field("Декодирование камеры",decoder));
+    fields.append(this._field("Декодирование в сетке",decoder));
     card.append(fields);
 
     const actions=this._el("div",{class:"actions"});
