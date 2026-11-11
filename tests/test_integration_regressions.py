@@ -57,7 +57,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.4.0")
+        self.assertEqual(manifest["version"], "1.5.0")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -85,11 +85,26 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('"update_checked_at": checked_at', coordinator)
         sensor = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
         self.assertIn('return "Ошибка проверки"', sensor)
-        self.assertIn('"can_install": bool(self.status.get("can_install", False))', sensor)
+        self.assertIn('"can_install": bool(self.status.get("can_install", False)) and not bootstrap_required', sensor)
         card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
         self.assertIn("Обновлений нет. Установлена последняя версия Viewpie", card)
         self.assertIn("Доступно обновление Viewpie до версии", card)
         self.assertIn("Проверка ещё не выполнялась", card)
+
+    def test_legacy_updater_versions_require_one_time_bootstrap(self):
+        import runpy
+
+        helpers = runpy.run_path(str(INTEGRATION / "update_utils.py"))
+        requires_bootstrap = helpers["requires_bootstrap"]
+        self.assertTrue(requires_bootstrap("0.2.25-fork"))
+        self.assertTrue(requires_bootstrap("0.2.26-fork"))
+        self.assertFalse(requires_bootstrap("0.2.27-fork"))
+        self.assertFalse(requires_bootstrap(None))
+        sensor = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
+        self.assertIn('"bootstrap_required": bootstrap_required', sensor)
+        self.assertIn('"bootstrap_command": BOOTSTRAP_COMMAND if bootstrap_required else None', sensor)
+        button = (INTEGRATION / "button.py").read_text(encoding="utf-8")
+        self.assertIn('requires_bootstrap(installed_version)', button)
 
     def test_installed_software_version_and_build_date_sensors_are_exposed(self):
         source = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")

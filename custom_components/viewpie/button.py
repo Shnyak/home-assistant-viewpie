@@ -19,6 +19,7 @@ from .api_client import ViewpieConnectionError
 from .const import CONF_RESTART_TOKEN, DOMAIN
 from .coordinator import ViewpieCoordinator
 from .entity import ViewpieEntity
+from .update_utils import BOOTSTRAP_COMMAND, requires_bootstrap
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -157,12 +158,19 @@ class ViewpieInstallUpdateButton(ViewpieEntity, ButtonEntity):
             self.coordinator.last_update_success
             and bool(self._restart_token)
             and bool(self.status.get("can_install", False))
+            and not requires_bootstrap(self.status.get("installed_version") or self.status.get("software_version"))
         )
 
     async def async_press(self) -> None:
         try:
             if not self._restart_token:
                 raise HomeAssistantError("Сначала укажите токен Viewpie в настройках интеграции")
+            installed_version = self.status.get("installed_version") or self.status.get("software_version")
+            if requires_bootstrap(installed_version):
+                raise HomeAssistantError(
+                    "Для первого перехода со старого установщика запустите на Raspberry Pi по SSH: "
+                    + BOOTSTRAP_COMMAND
+                )
             await self.coordinator.async_install_update(self._restart_token)
         except ViewpieConnectionError as err:
             raise HomeAssistantError(f"Не удалось запустить обновление Viewpie: {err}") from err

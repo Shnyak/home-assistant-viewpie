@@ -1,10 +1,11 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 from typing import Any, Optional
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.event import async_track_time_interval
 from .api_client import ViewpieApiClient
 from .const import DOMAIN, OPTION_GRID, UPDATE_INTERVAL
 _LOGGER = logging.getLogger(__name__)
@@ -16,9 +17,32 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN}_{entry.entry_id}", update_interval=UPDATE_INTERVAL)
         self.client, self.entry = client, entry
         self._update_info: dict[str, Any] = {}
+        self._last_update_failure: str | None = None
+        self._update_journal_unsub = None
+        self._update_journal_poll_attempts = 0
     async def _async_update_data(self) -> dict[str, Any]:
         try: data = await self.client.get_status()
         except Exception as err: raise UpdateFailed(f"Error polling viewpie status: {err}") from err
+        try:
+            update_status = await self.client.get_update_status()
+            data["update_status"] = update_status
+            failure = (
+                str(update_status.get("error") or update_status.get("message") or "")
+                if update_status.get("status") == "failed" else ""
+            )
+            if failure:
+                signature = f"{update_status.get('updated_at', '')}:{failure}"
+                if signature != self._last_update_failure:
+                    _LOGGER.error(
+                        "Viewpie update failed during %s: %s",
+                        update_status.get("phase", "unknown"), failure,
+                    )
+                    self._last_update_failure = signature
+            elif update_status.get("status") == "success":
+                self._last_update_failure = None
+        except Exception as err:
+            _LOGGER.debug("Could not refresh Viewpie update journal: %s", err)
+            data["update_status"] = (self.data or {}).get("update_status", {})
         try:
             settings = await self.client.get_settings()
             if isinstance(settings, dict):
@@ -98,9 +122,74 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_request_refresh()
         return dict(self._update_info)
 
+    def async_start_update_journal_polling(self) -> None:
+        """Poll the update log every two seconds while an install is starting/running."""
+        if self._update_journal_unsub is not None:
+            return
+        self._update_journal_poll_attempts = 30
+        self._update_journal_unsub = async_track_time_interval(
+            self.hass, self._async_poll_update_journal, timedelta(seconds=2)
+        )
+
+    def async_stop_update_journal_polling(self) -> None:
+        if self._update_journal_unsub is not None:
+            self._update_journal_unsub()
+            self._update_journal_unsub = None
+
+    async def _async_poll_update_journal(self, _now) -> None:
+        try:
+            update_status = await self.client.get_update_status()
+            data = dict(self.data or {})
+            data["update_status"] = update_status
+            self.async_set_updated_data(data)
+            status = str(update_status.get("status") or "unknown")
+            if status == "running":
+                self._update_journal_poll_attempts = 30
+            elif status in ("success", "failed"):
+                self.async_stop_update_journal_polling()
+                return
+            else:
+                self._update_journal_poll_attempts -= 1
+        except Exception as err:
+            _LOGGER.debug("Could not poll Viewpie updater journal: %s", err)
+            self._update_journal_poll_attempts -= 1
+        if self._update_journal_poll_attempts <= 0:
+            self.async_stop_update_journal_polling()
+
     async def async_install_update(self, token: str) -> dict[str, Any]:
         """Start installation through the restricted backend updater."""
-        return await self.client.install_update(token)
+        self.async_start_update_journal_polling()
+        try:
+            result = await self.client.install_update(token)
+        except Exception as err:
+            _LOGGER.exception("Could not start Viewpie update")
+            data = dict(self.data or {})
+            previous = data.get("update_status", {})
+            previous = previous if isinstance(previous, dict) else {}
+            timestamp = datetime.now(timezone.utc).isoformat()
+            line = f"[ha-request] {timestamp} ERROR: {err}"
+            old_log = str(previous.get("log") or "")
+            data["update_status"] = {
+                **previous,
+                "status": "failed",
+                "phase": "ha_request",
+                "message": "Home Assistant could not start the update request",
+                "error": str(err),
+                "updated_at": timestamp,
+                "finished_at": timestamp,
+                "exit_code": None,
+                "log": (old_log + "\n" + line).strip(),
+            }
+            self.async_set_updated_data(data)
+            self.async_stop_update_journal_polling()
+            raise
+        try:
+            await self.async_request_refresh()
+        except Exception as err:
+            # The worker may restart the API immediately after accepting the
+            # request. This does not mean the update itself failed to start.
+            _LOGGER.debug("Update started; immediate status refresh was interrupted: %s", err)
+        return result
 
     async def async_pause(self) -> None: await self.client.pause(); await self.async_request_refresh()
     async def async_resume(self) -> None: await self.client.resume(); await self.async_request_refresh()

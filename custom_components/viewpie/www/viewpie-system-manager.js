@@ -27,6 +27,7 @@ class ViewpieSystemManager extends HTMLElement {
       ["Load average (1m)", ["load average 1m"]],
       ["Latest version", ["latest version"]],
       ["Update available", ["update available"]],
+      ["Update process", ["update process"]],
       ["Paused", ["paused"]],
       ["Screen off", ["screen off"]],
       ["Software build date", ["software build date"]],
@@ -73,6 +74,10 @@ class ViewpieSystemManager extends HTMLElement {
   _render() {
     if (!this._config) return;
     const root = this.shadowRoot || this.attachShadow({mode:"open"});
+    const previousLog = root.querySelector(".terminal pre");
+    const previousScrollTop = previousLog?.scrollTop || 0;
+    const wasAtBottom = !previousLog ||
+      previousLog.scrollHeight - previousLog.scrollTop - previousLog.clientHeight < 24;
     root.replaceChildren();
     const style = document.createElement("style");
     style.textContent = `
@@ -97,6 +102,15 @@ class ViewpieSystemManager extends HTMLElement {
         color:var(--text-primary-color,#fff);cursor:pointer;width:100%;margin-top:16px}
       button:disabled{opacity:.55;cursor:default}
       .hint{margin-top:10px;color:var(--secondary-text-color);font-size:.88rem}
+      .terminal{margin-top:12px;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:#101418;color:#d8e2dc}
+      .terminal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;background:#20282e;font-size:.82rem}
+      .terminal-state{font-weight:600}
+      .terminal pre{margin:0;padding:12px;max-height:300px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
+        font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#d8e2dc}
+      .terminal .copy{width:auto;margin:0;padding:6px 10px;background:#39464e;color:#fff;font-size:.8rem}
+      .progress-track{height:4px;background:#39464e}
+      .progress-fill{height:4px;background:#69b783;transition:width .25s ease}
+      .terminal-empty{color:#aeb9b3}
     `;
     const card = document.createElement("ha-card");
     const title = document.createElement("h2");
@@ -195,7 +209,43 @@ class ViewpieSystemManager extends HTMLElement {
     const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
     const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
     const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
-    if (updateAvailable === "Нет") {
+    if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
+      installButton.disabled = true;
+      const bootstrapCommand = String(updateAttrs.bootstrap_command || "");
+      updateHint.style.whiteSpace = "pre-line";
+      updateHint.style.overflowWrap = "anywhere";
+      updateHint.textContent =
+        `Установлена старая версия ${updateAttrs.installed_version || ""}. Её встроенный установщик не может проверить новый Debian-пакет. Для первого перехода на ${latestVersion || updateAttrs.latest_version || "0.2.27-fork"} выполните на Raspberry Pi по SSH:\n\n${bootstrapCommand}\n\nСкрипт проверит архитектуру и SHA-256. Перезагрузка выполняется отдельно.`;
+      const copyBootstrap = document.createElement("button");
+      copyBootstrap.textContent = "Копировать команду первоначального обновления";
+      copyBootstrap.addEventListener("click", async () => {
+        try {
+          let copied = false;
+          if (navigator.clipboard?.writeText) {
+            try {
+              await navigator.clipboard.writeText(bootstrapCommand);
+              copied = true;
+            } catch (_) {}
+          }
+          if (!copied) {
+            const fallback = document.createElement("textarea");
+            fallback.value = bootstrapCommand;
+            fallback.setAttribute("readonly", "");
+            fallback.style.position = "fixed";
+            fallback.style.opacity = "0";
+            document.body.appendChild(fallback);
+            fallback.select();
+            copied = document.execCommand("copy");
+            fallback.remove();
+          }
+          if (!copied) throw new Error("Clipboard unavailable");
+          copyBootstrap.textContent = "Команда скопирована";
+        } catch (err) {
+          window.alert("Не удалось скопировать команду: " + (err?.message || err));
+        }
+      });
+      updateActions.insertBefore(copyBootstrap, installButton);
+    } else if (updateAvailable === "Нет") {
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
     } else if (updateAvailable === "Да") {
       updateHint.textContent = this._installUpdateButton?.state === "unavailable"
@@ -209,11 +259,96 @@ class ViewpieSystemManager extends HTMLElement {
       updateHint.textContent = "Проверка ещё не выполнялась. Нажмите «Проверить обновления», чтобы получить актуальный результат.";
     }
 
-    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint);
+    const journalEntity = this._rows?.find(row => row.label === "Update process")?.state;
+    const journal = journalEntity?.attributes || {};
+    const terminal = document.createElement("section");
+    terminal.className = "terminal";
+    const terminalHead = document.createElement("div");
+    terminalHead.className = "terminal-head";
+    const terminalState = document.createElement("span");
+    terminalState.className = "terminal-state";
+    const progressValue = journal.progress_percent !== null && journal.progress_percent !== undefined && Number.isFinite(Number(journal.progress_percent))
+      ? Math.max(0, Math.min(100, Number(journal.progress_percent))) : null;
+    const progress = progressValue !== null ? ` — ${progressValue}%` : "";
+    terminalState.textContent = journal.status === "running"
+      ? `● Выполняется: ${journal.phase || "подготовка"}${progress}`
+      : journal.status === "failed"
+        ? `● Ошибка: ${journal.phase || "этап неизвестен"}`
+        : journal.status === "success"
+          ? "● Обновление завершено"
+          : "● Журнал обновления";
+    const copyLog = document.createElement("button");
+    copyLog.type = "button";
+    copyLog.className = "copy";
+    copyLog.textContent = "Копировать журнал";
+    copyLog.addEventListener("click", async () => {
+      const report = [
+        "Viewpie update diagnostic report",
+        `status: ${journal.status || "unknown"}`,
+        `phase: ${journal.phase || "unknown"}`,
+        `message: ${journal.message || ""}`,
+        `error: ${journal.error || ""}`,
+        `version: ${journal.version || ""}`,
+        `architecture: ${journal.architecture || ""}`,
+        `started_at: ${journal.started_at || ""}`,
+        `updated_at: ${journal.updated_at || ""}`,
+        `finished_at: ${journal.finished_at || ""}`,
+        `exit_code: ${journal.exit_code ?? ""}`,
+        "",
+        "----- journal -----",
+        journal.log || "Журнал пока пуст.",
+      ].join("\n");
+      try {
+        let copied = false;
+        if (navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(report);
+            copied = true;
+          } catch (_) {
+            // Continue with the legacy selection-based fallback below.
+          }
+        }
+        if (!copied) {
+          const fallback = document.createElement("textarea");
+          fallback.value = report;
+          fallback.setAttribute("readonly", "");
+          fallback.style.position = "fixed";
+          fallback.style.opacity = "0";
+          document.body.appendChild(fallback);
+          fallback.select();
+          copied = document.execCommand("copy");
+          fallback.remove();
+        }
+        if (!copied) throw new Error("Clipboard is unavailable");
+        copyLog.textContent = "Скопировано";
+      } catch (err) {
+        copyLog.textContent = "Не удалось скопировать";
+        window.alert("Браузер не разрешил копирование. Откройте атрибут log датчика Update process и скопируйте его вручную.");
+      }
+    });
+    terminalHead.append(terminalState, copyLog);
+    if (progressValue !== null) {
+      const progressTrack = document.createElement("div");
+      progressTrack.className = "progress-track";
+      const progressFill = document.createElement("div");
+      progressFill.className = "progress-fill";
+      progressFill.style.width = `${progressValue}%`;
+      progressTrack.append(progressFill);
+      terminal.append(terminalHead, progressTrack);
+    } else {
+      terminal.append(terminalHead);
+    }
+    const terminalLog = document.createElement("pre");
+    terminalLog.textContent = journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
+    terminalLog.className = journal.log ? "" : "terminal-empty";
+    terminal.append(terminalLog);
+
+    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint, terminal);
     root.append(style, card);
+    terminalLog.scrollTop = wasAtBottom ? terminalLog.scrollHeight : previousScrollTop;
   }
 
-  getCardSize() { return 10; }
+  getCardSize() { return 14; }
   static getStubConfig() { return {title:"Управление системой"}; }
 }
 if (!customElements.get("viewpie-system-manager")) {

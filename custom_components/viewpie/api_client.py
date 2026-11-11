@@ -28,6 +28,7 @@ from .const import (
     API_SETTINGS,
     API_STATUS,
     API_UPDATE_CHECK,
+    API_UPDATE_STATUS,
     API_UPDATE_INSTALL,
     REQUEST_TIMEOUT_SECONDS,
 )
@@ -94,6 +95,7 @@ class ViewpieApiClient:
         path: str,
         data: Optional[dict[str, Any]] = None,
         extra_headers: Optional[dict[str, str]] = None,
+        request_timeout: Optional[ClientTimeout] = None,
     ) -> Any:
         if self._session is None:
             await self.async_init()
@@ -105,10 +107,29 @@ class ViewpieApiClient:
         _LOGGER.debug("viewpie request: %s %s", method, url)
         try:
             async with self._session.request(
-                method, url, json=data, headers=headers
+                method, url, json=data, headers=headers, timeout=request_timeout
             ) as response:
-                response.raise_for_status()
                 text = await response.text()
+                if response.status >= 400:
+                    detail = text.strip()
+                    try:
+                        payload = json.loads(text) if text else {}
+                        if isinstance(payload, dict):
+                            detail = str(payload.get("error") or payload.get("message") or detail)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                    if not (
+                        method == "GET"
+                        and path == API_UPDATE_STATUS
+                        and response.status == 404
+                    ):
+                        _LOGGER.error(
+                            "viewpie request rejected (%s %s): HTTP %s: %s",
+                            method, url, response.status, detail or response.reason,
+                        )
+                    raise ViewpieConnectionError(
+                        f"Viewpie returned HTTP {response.status}: {detail or response.reason}"
+                    )
                 return json.loads(text) if text else {}
         except aiohttp.ClientError as err:
             _LOGGER.error("viewpie request failed (%s %s): %s", method, url, err)
@@ -127,6 +148,11 @@ class ViewpieApiClient:
     async def check_update(self) -> dict[str, Any]:
         """Fetch latest architecture-matched Viewpie release metadata."""
         result = await self._request("GET", API_UPDATE_CHECK)
+        return result if isinstance(result, dict) else {}
+
+    async def get_update_status(self) -> dict[str, Any]:
+        """Fetch the current updater phase and bounded diagnostic journal."""
+        result = await self._request("GET", API_UPDATE_STATUS)
         return result if isinstance(result, dict) else {}
 
     async def install_update(self, token: str) -> dict[str, Any]:
@@ -153,7 +179,9 @@ class ViewpieApiClient:
         data: dict[str, Any] = {"camera": camera}
         if duration:
             data["duration_seconds"] = int(duration)
-        result = await self._request("POST", API_FULLSCREEN, data)
+        result = await self._request(
+            "POST", API_FULLSCREEN, data, request_timeout=ClientTimeout(total=15)
+        )
         return result if isinstance(result, dict) else {}
 
     async def get_settings(self) -> dict[str, Any]:

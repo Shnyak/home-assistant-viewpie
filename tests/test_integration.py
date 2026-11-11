@@ -7,6 +7,7 @@ from homeassistant.config_entries import SOURCE_USER
 from homeassistant.helpers import entity_registry as er
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.viewpie.const import (
     CONF_API_KEY,
@@ -289,6 +290,31 @@ async def test_options_flow_opens_and_saves_restart_token(hass: HomeAssistant, m
     assert entry.options["restart_token"] == "test-restart-token"
 
 
+async def test_legacy_updater_button_is_blocked_with_bootstrap_instructions(
+    hass: HomeAssistant, mock_client
+):
+    mock_client.check_update.return_value = {
+        "installed_version": "0.2.25-fork",
+        "latest_version": "0.2.27-fork",
+        "update_available": True,
+        "can_install": True,
+        "package_available": True,
+        "checksum_available": True,
+    }
+    entry = await _add_entry(hass)
+    coordinator = hass.data[DOMAIN][entry.entry_id].coordinator
+    await coordinator.async_check_update()
+    hass.config_entries.async_update_entry(entry, options={"restart_token": "test-token"})
+
+    from custom_components.viewpie.button import ViewpieInstallUpdateButton
+
+    button = ViewpieInstallUpdateButton(coordinator)
+    assert not button.available
+    with pytest.raises(HomeAssistantError, match="первого перехода"):
+        await button.async_press()
+    mock_client.install_update.assert_not_awaited()
+
+
 async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_client):
     """Exercise config flow, setup and entity creation without background sockets."""
     result = await hass.config_entries.flow.async_init(
@@ -316,12 +342,21 @@ async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_clie
 
 
 async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, mock_client):
+    # This test exercises the normal post-bootstrap update path.
+    mock_client.check_update.return_value = {
+        "installed_version": "0.2.27-fork",
+        "latest_version": "0.2.28-fork",
+        "update_available": True,
+        "can_install": True,
+        "package_available": True,
+        "checksum_available": True,
+    }
     entry = await _add_entry(hass)
     coordinator = hass.data[DOMAIN][entry.entry_id].coordinator
 
     await coordinator.async_check_update()
     mock_client.check_update.assert_awaited_once()
-    assert coordinator.data["latest_version"] == "0.2.22-fork"
+    assert coordinator.data["latest_version"] == "0.2.28-fork"
     assert coordinator.data["can_install"] is True
 
     hass.config_entries.async_update_entry(entry, options={"restart_token": "test-restart-token"})

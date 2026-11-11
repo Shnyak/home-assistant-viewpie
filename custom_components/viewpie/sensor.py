@@ -24,6 +24,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import ViewpieCoordinator
 from .entity import ViewpieEntity
+from .update_utils import BOOTSTRAP_COMMAND, requires_bootstrap
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ async def async_setup_entry(
             ViewpieSoftwareBuildDateSensor(coordinator),
             ViewpieLatestVersionSensor(coordinator),
             ViewpieUpdateAvailableSensor(coordinator),
+            ViewpieUpdateJournalSensor(coordinator),
             ViewpieDecoderStatusSensor(coordinator),
             ViewpieHardwareDecoderCountSensor(coordinator),
             ViewpieSoftwareDecoderCountSensor(coordinator),
@@ -341,16 +343,65 @@ class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        installed_version = self.status.get("installed_version") or self.status.get("software_version")
+        bootstrap_required = bool(
+            self.status.get("update_available") and requires_bootstrap(installed_version)
+        )
         return {
             "latest_version": self.status.get("latest_version"),
-            "installed_version": self.status.get("installed_version"),
+            "installed_version": installed_version,
+            "bootstrap_required": bootstrap_required,
+            "bootstrap_command": BOOTSTRAP_COMMAND if bootstrap_required else None,
             "architecture": self.status.get("architecture"),
-            "can_install": bool(self.status.get("can_install", False)),
+            "can_install": bool(self.status.get("can_install", False)) and not bootstrap_required,
             "package_available": bool(self.status.get("package_available", False)),
             "checksum_available": bool(self.status.get("checksum_available", False)),
             "release_url": self.status.get("release_url"),
             "release_notes": self.status.get("release_notes"),
             "checked_at": self.status.get("update_checked_at"),
             "check_message": self.status.get("update_check_message"),
+            "viewpie_entry_id": self.coordinator.entry.entry_id,
+        }
+
+
+class ViewpieUpdateJournalSensor(ViewpieEntity, SensorEntity):
+    """Current update phase and copyable diagnostic journal."""
+
+    _attr_name = "Update process"
+    _attr_icon = "mdi:console"
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_update_journal"
+
+    @property
+    def _update(self) -> dict[str, Any]:
+        value = (self.coordinator.data or {}).get("update_status", {})
+        return value if isinstance(value, dict) else {}
+
+    @property
+    def native_value(self) -> str:
+        status = str(self._update.get("status") or "unknown")
+        phase = str(self._update.get("phase") or "unknown")
+        return f"{status}: {phase}"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        update = self._update
+        return {
+            "status": update.get("status"),
+            "phase": update.get("phase"),
+            "message": update.get("message"),
+            "error": update.get("error"),
+            "version": update.get("version"),
+            "architecture": update.get("architecture"),
+            "started_at": update.get("started_at"),
+            "updated_at": update.get("updated_at"),
+            "finished_at": update.get("finished_at"),
+            "exit_code": update.get("exit_code"),
+            "progress_percent": update.get("progress_percent"),
+            "downloaded_bytes": update.get("downloaded_bytes"),
+            "total_bytes": update.get("total_bytes"),
+            "log": update.get("log", ""),
             "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
