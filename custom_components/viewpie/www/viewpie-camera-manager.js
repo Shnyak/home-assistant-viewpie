@@ -65,7 +65,7 @@ class ViewpieCameraManager extends HTMLElement {
     `;
     const card=this._el("ha-card");
     card.append(this._el("h2",{},this._config.title || "Управление камерами Viewpie"));
-    card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменения применяются командой Reload config."));
+    card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменение параметров камеры применяется сразу. Новую камеру добавьте в раскладку нужной панели."));
     card.append(this._el("p",{class:"muted"},"Автоматически заполняет свободные аппаратные слоты по имени камеры после явно выбранных Hardware-камер; Software всегда декодируется процессором. Отдельный основной поток в полноэкранном режиме также использует программное декодирование, чтобы не занимать слот сетки."));
     const fields=this._el("div",{class:"fields"});
     const select=this._el("select");
