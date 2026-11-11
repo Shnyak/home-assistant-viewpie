@@ -113,6 +113,19 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
     )
     mock_client.update_settings.assert_awaited_with(startup_panel="night")
 
+    boot_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_screen_boot_mode"
+    )
+    assert boot_entity_id is not None
+    boot = hass.states.get(boot_entity_id)
+    assert boot is not None
+    assert boot.state == "Восстановить последнее состояние"
+    await hass.services.async_call(
+        "select", "select_option",
+        {"entity_id": boot.entity_id, "option": "Всегда выключен"}, blocking=True,
+    )
+    mock_client.update_settings.assert_awaited_with(screen_boot_mode="always_off")
+
     fullscreen_entity_id = registry.async_get_entity_id(
         "select", DOMAIN, f"{entry.entry_id}_fullscreen"
     )
