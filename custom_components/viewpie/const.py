@@ -43,6 +43,7 @@ REQUEST_TIMEOUT_SECONDS = 10
 
 SERVICE_FULLSCREEN = "fullscreen"
 SERVICE_SWITCH_PANEL = "switch_panel"
+SERVICE_REORDER_PANELS = "reorder_panels"
 SERVICE_SET_SPACING = "set_spacing"
 
 ATTR_CAMERA = "camera"
