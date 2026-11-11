@@ -131,6 +131,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await client.async_init()
         coordinator = ViewpieCoordinator(hass, client, entry)
         await coordinator.async_config_entry_first_refresh()
+        if (coordinator.data or {}).get("update_status", {}).get("status") == "running":
+            coordinator.async_start_update_journal_polling()
 
         # Platforms read their coordinator from hass.data during setup.
         # Register runtime data BEFORE forwarding platforms; the old order
@@ -157,6 +159,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         runtime: ViewpieRuntimeData | None = hass.data[DOMAIN].pop(entry.entry_id, None)
         if runtime is not None:
+            runtime.coordinator.async_stop_update_journal_polling()
             await runtime.client.async_close()
     if not hass.data.get(DOMAIN):
         for service in (
