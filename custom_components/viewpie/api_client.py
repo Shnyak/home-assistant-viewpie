@@ -28,6 +28,7 @@ from .const import (
     API_SETTINGS,
     API_STATUS,
     API_UPDATE_CHECK,
+    API_UPDATE_STATUS,
     API_UPDATE_INSTALL,
     REQUEST_TIMEOUT_SECONDS,
 )
@@ -127,6 +128,11 @@ class ViewpieApiClient:
     async def check_update(self) -> dict[str, Any]:
         """Fetch latest architecture-matched Viewpie release metadata."""
         result = await self._request("GET", API_UPDATE_CHECK)
+        return result if isinstance(result, dict) else {}
+
+    async def get_update_status(self) -> dict[str, Any]:
+        """Fetch the current updater phase and bounded diagnostic journal."""
+        result = await self._request("GET", API_UPDATE_STATUS)
         return result if isinstance(result, dict) else {}
 
     async def install_update(self, token: str) -> dict[str, Any]:
