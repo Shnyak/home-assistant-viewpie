@@ -327,6 +327,7 @@ class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
 
     _attr_name = "Update available"
     _attr_icon = "mdi:update"
+    _key = "update_available"
 
     @property
     def native_value(self) -> str:
