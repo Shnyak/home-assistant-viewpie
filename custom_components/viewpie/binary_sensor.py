@@ -58,7 +58,10 @@ class ViewpieCameraBinarySensor(ViewpieEntity, BinarySensorEntity):
         return next((c for c in self.status.get("camera_details", []) if c.get("name") == self.camera_name), {})
     @property
     def extra_state_attributes(self) -> dict:
-        return {"references": int(self._camera.get("ref_count", 0))} if self._camera else {}
+        return {
+            "references": int(self._camera.get("ref_count", 0)),
+            "viewpie_entry_id": self.coordinator.entry.entry_id,
+        } if self._camera else {"viewpie_entry_id": self.coordinator.entry.entry_id}
 class ViewpieCameraRunningBinarySensor(ViewpieCameraBinarySensor):
     _camera_key = "running"; _attr_device_class = BinarySensorDeviceClass.RUNNING; _attr_icon = "mdi:cctv"
     @property
