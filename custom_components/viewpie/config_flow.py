@@ -111,14 +111,11 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry):
-        return ViewpieOptionsFlow(config_entry)
+        return ViewpieOptionsFlow()
 
 
 class ViewpieOptionsFlow(config_entries.OptionsFlow):
     """Configure the dedicated token used only for the host reboot action."""
-
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
