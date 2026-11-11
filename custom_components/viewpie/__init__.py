@@ -35,6 +35,7 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     SERVICE_FULLSCREEN,
+    SERVICE_REORDER_PANELS,
     SERVICE_SET_SPACING,
     SERVICE_SWITCH_PANEL,
 )
@@ -160,7 +161,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await runtime.client.async_close()
     if not hass.data.get(DOMAIN):
         for service in (
-            SERVICE_FULLSCREEN, SERVICE_SWITCH_PANEL, SERVICE_SET_SPACING,
+            SERVICE_FULLSCREEN, SERVICE_SWITCH_PANEL, SERVICE_REORDER_PANELS, SERVICE_SET_SPACING,
             "manage_camera", "test_camera", "get_camera", "manage_panel", "apply_config",
         ):
             if hass.services.has_service(DOMAIN, service):
@@ -199,6 +200,16 @@ def _register_services(hass: HomeAssistant) -> None:
     async def handle_switch_panel(call: ServiceCall) -> None:
         for coordinator in _iter_coordinators(hass, call):
             await coordinator.async_activate_panel(call.data[ATTR_PANEL])
+
+    async def handle_reorder_panels(call: ServiceCall) -> None:
+        order = call.data["order"]
+        if not isinstance(order, list) or not order or any(not isinstance(item, str) or not item.strip() for item in order):
+            raise HomeAssistantError("order must be a non-empty list of panel ids")
+        for coordinator in _iter_coordinators(hass, call, management=True):
+            try:
+                await coordinator.async_reorder_panels(order)
+            except Exception as err:
+                raise HomeAssistantError(f"Could not reorder Viewpie panels: {err}") from err
 
     async def handle_set_spacing(call: ServiceCall) -> None:
         for coordinator in _iter_coordinators(hass, call):
@@ -426,6 +437,13 @@ def _register_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SWITCH_PANEL, handle_switch_panel,
         schema=vol.Schema({
             vol.Required(ATTR_PANEL): cv.string,
+            vol.Optional(ATTR_ENTRY_ID): cv.string,
+        }),
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_REORDER_PANELS, handle_reorder_panels,
+        schema=vol.Schema({
+            vol.Required("order"): [cv.string],
             vol.Optional(ATTR_ENTRY_ID): cv.string,
         }),
     )
