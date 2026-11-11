@@ -59,6 +59,7 @@ _STATUS = {
     "paused": False,
     "pause_off_screen": True,
     "active_panel": "outside",
+    "startup_panel": "outside",
     "active_panel_name": "Outside",
     "fullscreen_camera": None,
     "screen_off": False,
