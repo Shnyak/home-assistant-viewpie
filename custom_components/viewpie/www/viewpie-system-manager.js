@@ -263,9 +263,16 @@ class ViewpieSystemManager extends HTMLElement {
         journal.log || "Журнал пока пуст.",
       ].join("\n");
       try {
+        let copied = false;
         if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(report);
-        } else {
+          try {
+            await navigator.clipboard.writeText(report);
+            copied = true;
+          } catch (_) {
+            // Continue with the legacy selection-based fallback below.
+          }
+        }
+        if (!copied) {
           const fallback = document.createElement("textarea");
           fallback.value = report;
           fallback.setAttribute("readonly", "");
@@ -273,10 +280,10 @@ class ViewpieSystemManager extends HTMLElement {
           fallback.style.opacity = "0";
           document.body.appendChild(fallback);
           fallback.select();
-          const copied = document.execCommand("copy");
+          copied = document.execCommand("copy");
           fallback.remove();
-          if (!copied) throw new Error("Clipboard API is unavailable");
         }
+        if (!copied) throw new Error("Clipboard is unavailable");
         copyLog.textContent = "Скопировано";
       } catch (err) {
         copyLog.textContent = "Не удалось скопировать";
