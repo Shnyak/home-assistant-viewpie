@@ -146,10 +146,10 @@ class ViewpieCameraManager extends HTMLElement {
         if(operation==="delete"){
           this._cameraOptions=this._cameraOptions.filter(item=>item!==name);
           this._cameraName="";this._cameraUrl="";this._cameraFullscreenUrl="";this._cameraDecoder="auto";
-          this._status=`Камера «${name}» удалена. Использовавшиеся ячейки панелей очищены; Reload config выполнен.`;
+          this._status=`Камера «${name}» удалена. Использовавшиеся ячейки панелей очищены.`;
         }else{
           this._cameraOptions=[...new Set([...this._cameraOptions,name])];
-          this._status=operation==="create"?`Камера «${name}» добавлена. Reload config выполнен.`:`Камера «${name}» обновлена. Reload config выполнен.`;
+          this._status=operation==="create"?`Камера «${name}» добавлена. Добавьте её в раскладку панели.`:`Камера «${name}» обновлена.`;
         }
       }
     }catch(err){this._status=`Операция не выполнена: ${err?.message||err}`;this._error=true;}
