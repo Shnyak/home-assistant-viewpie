@@ -6,6 +6,7 @@ class ViewpieCameraManager extends HTMLElement {
     this._cameraName = "";
     this._cameraUrl = "";
     this._cameraFullscreenUrl = "";
+    this._cameraDecoder = "auto";
     this._cameraOptions = [];
     this._status = "";
     this._error = false;
@@ -71,13 +72,13 @@ class ViewpieCameraManager extends HTMLElement {
     this._cameraOptions.forEach(name=>select.append(this._el("option",{value:name},name)));
     select.value=this._cameraName;
     select.addEventListener("change",async()=>{
-      this._cameraName=select.value; this._cameraUrl=""; this._cameraFullscreenUrl="";
+      this._cameraName=select.value; this._cameraUrl=""; this._cameraFullscreenUrl=""; this._cameraDecoder="auto";
       if(this._cameraName){
         try{
           const data={name:this._cameraName}; if(this._entryId)data.entry_id=this._entryId;
           const result=await this._hass.callWS({type:"call_service",domain:"viewpie",service:"get_camera",service_data:data,return_response:true});
           const camera=result?.response||result;
-          this._cameraUrl=camera?.url||""; this._cameraFullscreenUrl=camera?.fullscreen_url||"";
+          this._cameraUrl=camera?.url||""; this._cameraFullscreenUrl=camera?.fullscreen_url||""; this._cameraDecoder=camera?.decoder||"auto";
           this._status="Параметры камеры загружены."; this._error=false;
         }catch(err){this._status="Не удалось загрузить параметры: "+(err?.message||err);this._error=true;}
       } else this._status="";
@@ -97,6 +98,11 @@ class ViewpieCameraManager extends HTMLElement {
     full.value=this._cameraFullscreenUrl;
     full.addEventListener("input",()=>this._cameraFullscreenUrl=full.value);
     fields.append(this._field("RTSP URL для fullscreen",full));
+    const decoder=this._el("select");
+    [["auto","Автоматически (до лимита)"] ,["hardware","Аппаратное декодирование"],["software","Программное декодирование"]].forEach(([value,label])=>decoder.append(this._el("option",{value},label)));
+    decoder.value=this._cameraDecoder;
+    decoder.addEventListener("change",()=>this._cameraDecoder=decoder.value);
+    fields.append(this._field("Декодирование камеры",decoder));
     card.append(fields);
 
     const actions=this._el("div",{class:"actions"});
@@ -134,11 +140,11 @@ class ViewpieCameraManager extends HTMLElement {
         this._error=!value.ok;
       }else{
         data.operation=operation;
-        if(operation!=="delete"){data.url=this._cameraUrl.trim();data.fullscreen_url=this._cameraFullscreenUrl||"";}
+        if(operation!=="delete"){data.url=this._cameraUrl.trim();data.fullscreen_url=this._cameraFullscreenUrl||"";data.decoder=this._cameraDecoder||"auto";}
         await this._hass.callService("viewpie","manage_camera",data);
         if(operation==="delete"){
           this._cameraOptions=this._cameraOptions.filter(item=>item!==name);
-          this._cameraName="";this._cameraUrl="";this._cameraFullscreenUrl="";
+          this._cameraName="";this._cameraUrl="";this._cameraFullscreenUrl="";this._cameraDecoder="auto";
           this._status=`Камера «${name}» удалена. Использовавшиеся ячейки панелей очищены; Reload config выполнен.`;
         }else{
           this._cameraOptions=[...new Set([...this._cameraOptions,name])];
