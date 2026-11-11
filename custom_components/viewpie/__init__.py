@@ -324,12 +324,9 @@ def _register_services(hass: HomeAssistant) -> None:
                     raise HomeAssistantError(
                         f"Could not delete camera '{name}'. Panel changes were rolled back where possible: {err}"
                     ) from err
-            try:
-                await client.reload_config()
-            except Exception as err:
-                raise HomeAssistantError(
-                    f"Camera '{name}' was saved, but Viewpie Reload config failed: {err}"
-                ) from err
+            # Camera update/delete endpoints already trigger a renderer
+            # reload when their configuration changes. A second explicit
+            # reload here would restart all decoder sessions twice.
             await refresh(coordinator)
 
     async def handle_get_camera(call: ServiceCall) -> dict[str, Any]:
