@@ -161,7 +161,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data.get(DOMAIN):
         for service in (
             SERVICE_FULLSCREEN, SERVICE_SWITCH_PANEL, SERVICE_SET_SPACING,
-            "manage_camera", "test_camera", "get_camera", "manage_panel", "apply_config",
+            "manage_camera", "test_camera", "get_camera", "manage_panel", "reorder_panels", "apply_config",
         ):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
@@ -199,6 +199,24 @@ def _register_services(hass: HomeAssistant) -> None:
     async def handle_switch_panel(call: ServiceCall) -> None:
         for coordinator in _iter_coordinators(hass, call):
             await coordinator.async_activate_panel(call.data[ATTR_PANEL])
+
+    async def handle_reorder_panels(call: ServiceCall) -> None:
+        order = [str(panel).strip() for panel in call.data["order"]]
+        if not order or any(not panel for panel in order):
+            raise HomeAssistantError("order must contain non-empty panel IDs")
+        if len(order) != len(set(order)):
+            raise HomeAssistantError("order must not contain duplicate panel IDs")
+        for coordinator in _iter_coordinators(hass, call, management=True):
+            current = await coordinator.client.get_panels()
+            expected = {
+                str(item.get("id") if isinstance(item, dict) else item)
+                for item in current
+            }
+            if set(order) != expected:
+                raise HomeAssistantError(
+                    "order must contain every configured panel exactly once"
+                )
+            await coordinator.async_reorder_panels(order)
 
     async def handle_set_spacing(call: ServiceCall) -> None:
         for coordinator in _iter_coordinators(hass, call):
@@ -426,6 +444,13 @@ def _register_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SWITCH_PANEL, handle_switch_panel,
         schema=vol.Schema({
             vol.Required(ATTR_PANEL): cv.string,
+            vol.Optional(ATTR_ENTRY_ID): cv.string,
+        }),
+    )
+    hass.services.async_register(
+        DOMAIN, "reorder_panels", handle_reorder_panels,
+        schema=vol.Schema({
+            vol.Required("order"): [cv.string],
             vol.Optional(ATTR_ENTRY_ID): cv.string,
         }),
     )
