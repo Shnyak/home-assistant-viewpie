@@ -3,11 +3,12 @@
     "step": {
       "user": {
         "title": "Connect to Viewpie",
-        "description": "Enter the address of the device running the modified viewpie with HTTP API.",
+        "description": "Enter the address of the device running Viewpie. If the installer displayed a restart token, paste it here to enable restart and verified updates.",
         "data": {
           "host": "IP address or hostname",
           "port": "Port",
-          "api_key": "API key (optional)"
+          "api_key": "API key (optional)",
+          "restart_token": "Restart / update token"
         }
       }
     },
