@@ -78,6 +78,19 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn('.map(row => row.trim().split(/\\s+/))', source)
 
+    def test_update_check_has_visible_result_and_release_metadata(self):
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        self.assertIn('"update_check_status": "checked"', coordinator)
+        self.assertIn('"update_check_status": "error"', coordinator)
+        self.assertIn('"update_checked_at": checked_at', coordinator)
+        sensor = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
+        self.assertIn('return "Ошибка проверки"', sensor)
+        self.assertIn('"can_install": bool(self.status.get("can_install", False))', sensor)
+        card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("Обновлений нет. Установлена последняя версия Viewpie", card)
+        self.assertIn("Доступно обновление Viewpie до версии", card)
+        self.assertIn("Проверка ещё не выполнялась", card)
+
     def test_installed_software_version_and_build_date_sensors_are_exposed(self):
         source = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
         self.assertIn("ViewpieSoftwareVersionSensor(coordinator)", source)
