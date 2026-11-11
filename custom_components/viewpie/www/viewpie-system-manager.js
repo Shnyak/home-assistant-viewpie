@@ -213,7 +213,7 @@ class ViewpieSystemManager extends HTMLElement {
       installButton.disabled = true;
       const bootstrapCommand = String(updateAttrs.bootstrap_command || "");
       updateHint.textContent =
-        `Установлена старая версия ${updateAttrs.installed_version || ""}. Её встроенный установщик не может проверить новый Debian-пакет. Для первого перехода на ${latestVersion || updateAttrs.latest_version || "0.2.27-fork"} выполните на Raspberry Pi по SSH:\\n\\n${bootstrapCommand}\\n\\nСкрипт проверит архитектуру и SHA-256. Перезагрузка выполняется отдельно.`;
+        `Установлена старая версия ${updateAttrs.installed_version || ""}. Её встроенный установщик не может проверить новый Debian-пакет. Для первого перехода на ${latestVersion || updateAttrs.latest_version || "0.2.27-fork"} выполните на Raspberry Pi по SSH:\n\n${bootstrapCommand}\n\nСкрипт проверит архитектуру и SHA-256. Перезагрузка выполняется отдельно.`;
       const copyBootstrap = document.createElement("button");
       copyBootstrap.textContent = "Копировать команду первоначального обновления";
       copyBootstrap.addEventListener("click", async () => {
