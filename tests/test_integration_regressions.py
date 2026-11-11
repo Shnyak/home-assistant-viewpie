@@ -268,6 +268,16 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('vol.Optional(CONF_RESTART_TOKEN, default=""): str', source)
         self.assertIn('CONF_RESTART_TOKEN: (user_input.get(CONF_RESTART_TOKEN) or "").strip()', source)
 
+    def test_debug_overlay_switch_is_wired_to_native_display_setting(self):
+        source = (INTEGRATION / "switch.py").read_text(encoding="utf-8")
+        self.assertIn("ViewpieDebugOverlaySwitch(coordinator)", source)
+        self.assertIn('"debug_overlay" in (', source)
+        self.assertIn('async_update_settings(debug_overlay=True)', source)
+        self.assertIn('async_update_settings(debug_overlay=False)', source)
+        native_settings = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        self.assertIn("async def async_update_settings", native_settings)
+
+
     def test_update_client_and_buttons_are_wired(self):
         api = (INTEGRATION / "api_client.py").read_text(encoding="utf-8")
         button = (INTEGRATION / "button.py").read_text(encoding="utf-8")
