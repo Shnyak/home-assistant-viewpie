@@ -209,7 +209,41 @@ class ViewpieSystemManager extends HTMLElement {
     const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
     const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
     const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
-    if (updateAvailable === "Нет") {
+    if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
+      installButton.disabled = true;
+      const bootstrapCommand = String(updateAttrs.bootstrap_command || "");
+      updateHint.textContent =
+        `Установлена старая версия ${updateAttrs.installed_version || ""}. Её встроенный установщик не может проверить новый Debian-пакет. Для первого перехода на ${latestVersion || updateAttrs.latest_version || "0.2.27-fork"} выполните на Raspberry Pi по SSH:\\n\\n${bootstrapCommand}\\n\\nСкрипт проверит архитектуру и SHA-256. Перезагрузка выполняется отдельно.`;
+      const copyBootstrap = document.createElement("button");
+      copyBootstrap.textContent = "Копировать команду первоначального обновления";
+      copyBootstrap.addEventListener("click", async () => {
+        try {
+          let copied = false;
+          if (navigator.clipboard?.writeText) {
+            try {
+              await navigator.clipboard.writeText(bootstrapCommand);
+              copied = true;
+            } catch (_) {}
+          }
+          if (!copied) {
+            const fallback = document.createElement("textarea");
+            fallback.value = bootstrapCommand;
+            fallback.setAttribute("readonly", "");
+            fallback.style.position = "fixed";
+            fallback.style.opacity = "0";
+            document.body.appendChild(fallback);
+            fallback.select();
+            copied = document.execCommand("copy");
+            fallback.remove();
+          }
+          if (!copied) throw new Error("Clipboard unavailable");
+          copyBootstrap.textContent = "Команда скопирована";
+        } catch (err) {
+          window.alert("Не удалось скопировать команду: " + (err?.message || err));
+        }
+      });
+      updateActions.insertBefore(copyBootstrap, installButton);
+    } else if (updateAvailable === "Нет") {
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
     } else if (updateAvailable === "Да") {
       updateHint.textContent = this._installUpdateButton?.state === "unavailable"
