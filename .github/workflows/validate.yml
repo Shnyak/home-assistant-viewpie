@@ -1,12 +1,16 @@
 name: Validate integration and publish stable release
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches:
-      - main
+      - "**"
   push:
     branches:
-      - main
+      - "**"
   workflow_dispatch:
 
 permissions:
