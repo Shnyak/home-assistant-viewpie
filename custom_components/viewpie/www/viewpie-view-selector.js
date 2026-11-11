@@ -7,6 +7,7 @@ class ViewpieViewSelector extends HTMLElement {
     this._panels = [];
     this._cameras = [];
     this._panelEntity = null;
+    this._startupPanelEntity = null;
     this._fullscreenEntity = null;
     this._screenEntity = null;
     this._busy = false;
@@ -22,6 +23,8 @@ class ViewpieViewSelector extends HTMLElement {
       s.attributes?.icon === "mdi:fullscreen" && Array.isArray(s.attributes?.options));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.attributes?.icon === "mdi:view-dashboard" && Array.isArray(s.attributes?.options));
+    const startupPanel = states.find(s => s.entity_id.startsWith("select.") &&
+      s.attributes?.icon === "mdi:home-import-outline" && Array.isArray(s.attributes?.options));
     // With has_entity_name enabled, HA composes friendly_name from the
     // device name and entity name (for example "Viewpie (host) Экран").
     // Match the dedicated screen switch by its stable icon/name instead of
@@ -40,12 +43,15 @@ class ViewpieViewSelector extends HTMLElement {
     const signature = JSON.stringify([
       fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
       panel?.entity_id, panel?.attributes?.options, panel?.state,
-      panel?.attributes?.panel_details, screen?.entity_id, screen?.state
+      panel?.attributes?.panel_details, startupPanel?.entity_id,
+      startupPanel?.attributes?.options, startupPanel?.state,
+      screen?.entity_id, screen?.state
     ]);
     if (signature !== this._signature) {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
       this._panelEntity = panel || null;
+      this._startupPanelEntity = startupPanel || null;
       this._screenEntity = screen || null;
       this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
@@ -148,6 +154,22 @@ class ViewpieViewSelector extends HTMLElement {
     }
   }
 
+  async _chooseStartupPanel(panelId) {
+    if (this._busy || !this._hass || !this._startupPanelEntity) return;
+    this._busy = true;
+    this._status = "Сохраняю стартовую панель…";
+    this._render();
+    try {
+      await this._callSelect(this._startupPanelEntity, panelId);
+      this._status = "Стартовая панель: " + this._panelLabel(panelId);
+    } catch (err) {
+      this._status = "Не удалось сохранить стартовую панель: " + (err?.message || err);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+  }
+
   async _chooseCamera(camera) {
     if (this._busy || !this._hass) return;
     this._busy = true;
@@ -223,6 +245,29 @@ class ViewpieViewSelector extends HTMLElement {
     screenRow.append(screenButton);
     card.append(screenRow);
     card.append(this._el("h3", {}, "Панели"));
+    if (this._startupPanelEntity) {
+      const startupRow = this._el("div", {class: "choice-row"});
+      startupRow.append(this._el("label", {class: "choice-label"}, "Стартовая панель"));
+      const startupSelect = this._el("select");
+      startupSelect.setAttribute("aria-label", "Стартовая панель");
+      startupSelect.style.maxWidth = "55%";
+      startupSelect.style.minWidth = "0";
+      startupSelect.style.padding = "7px 9px";
+      startupSelect.style.borderRadius = "8px";
+      startupSelect.style.border = "1px solid var(--divider-color)";
+      startupSelect.style.background = "var(--secondary-background-color)";
+      startupSelect.style.color = "var(--primary-text-color)";
+      for (const id of this._startupPanelEntity.attributes.options || []) {
+        const option = this._el("option", {value: id}, this._panelLabel(id));
+        option.selected = id === this._startupPanelEntity.state;
+        startupSelect.append(option);
+      }
+      startupSelect.disabled = this._busy || this._startupPanelEntity.state === "unavailable";
+      startupSelect.addEventListener("change", event => this._chooseStartupPanel(event.target.value));
+      startupRow.append(startupSelect);
+      card.append(startupRow);
+    }
+
     const panels = this._el("div", {class: "choice-list"});
     const activePanel = this._activePanel();
     this._panels.forEach(id => {
