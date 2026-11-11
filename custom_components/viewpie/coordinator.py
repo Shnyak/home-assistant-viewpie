@@ -161,8 +161,6 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_start_update_journal_polling()
         try:
             result = await self.client.install_update(token)
-            await self.async_request_refresh()
-            return result
         except Exception as err:
             _LOGGER.exception("Could not start Viewpie update")
             data = dict(self.data or {})
@@ -185,6 +183,13 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.async_set_updated_data(data)
             self.async_stop_update_journal_polling()
             raise
+        try:
+            await self.async_request_refresh()
+        except Exception as err:
+            # The worker may restart the API immediately after accepting the
+            # request. This does not mean the update itself failed to start.
+            _LOGGER.debug("Update started; immediate status refresh was interrupted: %s", err)
+        return result
 
     async def async_pause(self) -> None: await self.client.pause(); await self.async_request_refresh()
     async def async_resume(self) -> None: await self.client.resume(); await self.async_request_refresh()
