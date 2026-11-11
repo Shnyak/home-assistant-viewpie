@@ -163,6 +163,7 @@ class ViewpieSystemManager extends HTMLElement {
     checkButton.addEventListener("click", async () => {
       if (!this._hass || !this._checkUpdateButton) return;
       checkButton.disabled = true;
+      updateHint.textContent = "Проверяем наличие обновлений на GitHub…";
       try {
         await this._hass.callService("button", "press", {entity_id:this._checkUpdateButton.entity_id});
       } catch (err) {
@@ -191,9 +192,22 @@ class ViewpieSystemManager extends HTMLElement {
     updateActions.append(checkButton, installButton);
     const updateHint = document.createElement("div");
     updateHint.className = "hint";
-    updateHint.textContent = this._installUpdateButton?.state === "unavailable"
-      ? "Сначала проверьте обновления. Установка доступна только при наличии новой версии и настроенного токена."
-      : "Пакет скачивается с GitHub, архитектура проверяется, SHA-256 сверяется перед установкой.";
+    const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
+    const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
+    const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
+    if (updateAvailable === "Нет") {
+      updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
+    } else if (updateAvailable === "Да") {
+      updateHint.textContent = this._installUpdateButton?.state === "unavailable"
+        ? `Доступна версия ${latestVersion || updateAttrs.latest_version || ""}, но установка пока недоступна: проверьте наличие пакета, SHA-256 и токена обновления.`
+        : `Доступно обновление Viewpie до версии ${latestVersion || updateAttrs.latest_version || ""}. Пакет и контрольная сумма проверяются перед установкой.`;
+    } else if (updateAvailable === "Ошибка проверки") {
+      updateHint.textContent = `Не удалось проверить обновления: ${updateAttrs.check_message || "ошибка соединения с GitHub"}. Попробуйте ещё раз.`;
+    } else if (updateAvailable === "Неизвестно") {
+      updateHint.textContent = "Не удалось получить состояние обновлений. Проверьте соединение с Viewpie.";
+    } else {
+      updateHint.textContent = "Проверка ещё не выполнялась. Нажмите «Проверить обновления», чтобы получить актуальный результат.";
+    }
 
     card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint);
     root.append(style, card);

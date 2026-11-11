@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 import logging
 from typing import Any, Optional
 from homeassistant.config_entries import ConfigEntry
@@ -75,8 +76,25 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return data
 
     async def async_check_update(self) -> dict[str, Any]:
-        """Check GitHub only on explicit request, not on every status poll."""
-        self._update_info = await self.client.check_update()
+        """Check GitHub only on explicit request, retaining a visible result."""
+        checked_at = datetime.now(timezone.utc).isoformat()
+        try:
+            info = await self.client.check_update()
+        except Exception as err:
+            self._update_info = {
+                **self._update_info,
+                "update_check_status": "error",
+                "update_check_message": str(err),
+                "update_checked_at": checked_at,
+            }
+            await self.async_request_refresh()
+            raise
+        self._update_info = {
+            **info,
+            "update_check_status": "checked",
+            "update_check_message": "",
+            "update_checked_at": checked_at,
+        }
         await self.async_request_refresh()
         return dict(self._update_info)
 
