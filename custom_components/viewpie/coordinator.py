@@ -63,6 +63,13 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["cameras"] = [str(c.get("name")) if isinstance(c, dict) else str(c) for c in cameras if (c.get("name") if isinstance(c, dict) else c)]
         except Exception as err:
             _LOGGER.debug("Could not refresh camera list: %s", err); data.setdefault("camera_details", []); data.setdefault("cameras", [])
+        current_version = data.get("software_version")
+        if current_version and self._update_info.get("latest_version") == str(current_version):
+            self._update_info.update({
+                "installed_version": str(current_version),
+                "update_available": False,
+                "can_install": False,
+            })
         if self._update_info:
             data.update(self._update_info)
         return data
@@ -75,9 +82,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_install_update(self, token: str) -> dict[str, Any]:
         """Start installation through the restricted backend updater."""
-        result = await self.client.install_update(token)
-        await self.async_request_refresh()
-        return result
+        return await self.client.install_update(token)
 
     async def async_pause(self) -> None: await self.client.pause(); await self.async_request_refresh()
     async def async_resume(self) -> None: await self.client.resume(); await self.async_request_refresh()
