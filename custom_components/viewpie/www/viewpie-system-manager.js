@@ -35,6 +35,28 @@ class ViewpieSystemManager extends HTMLElement {
       ["Unknown decoder status", ["unknown decoder status"]],
       ["Uptime", ["uptime"]],
     ];
+    this._cameraDiagnostics = states
+      .filter(item => item.entity_id.startsWith("sensor.") && belongsToEntry(item))
+      .filter(item => {
+        const attrs = item.attributes || {};
+        return typeof attrs.camera === "string" && (
+          "codec" in attrs || "resolution" in attrs || "fps" in attrs || "errors" in attrs
+        );
+      })
+      .map(item => {
+        const attrs = item.attributes || {};
+        return {
+          camera: String(attrs.camera),
+          mode: attrs.mode || "unknown",
+          state: item.state || "unknown",
+          codec: attrs.codec || "—",
+          resolution: attrs.resolution || "—",
+          fps: Number.isFinite(Number(attrs.fps)) ? Number(attrs.fps).toFixed(1) : "—",
+          errors: Number(attrs.errors || 0),
+          fallback: attrs.fallback_reason || "",
+        };
+      })
+      .sort((a, b) => a.camera.localeCompare(b.camera, "ru"));
     this._rows = wanted.map(([label, aliases]) => {
       const domain = ["Paused", "Screen off"].includes(label) ? "binary_sensor." : "sensor.";
       const state = states.find(item => {
@@ -209,7 +231,49 @@ class ViewpieSystemManager extends HTMLElement {
       updateHint.textContent = "Проверка ещё не выполнялась. Нажмите «Проверить обновления», чтобы получить актуальный результат.";
     }
 
-    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint);
+    const cameraSection = document.createElement("div");
+    cameraSection.className = "section";
+    cameraSection.textContent = "Диагностика видеопотоков";
+    const cameraRows = document.createElement("div");
+    cameraRows.className = "rows";
+    for (const camera of (this._cameraDiagnostics || [])) {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.style.gridTemplateColumns = "minmax(0,1fr)";
+      row.style.padding = "8px 0";
+      const name = document.createElement("strong");
+      name.textContent = camera.camera;
+      const details = document.createElement("span");
+      details.className = "muted";
+      details.style.fontSize = ".88rem";
+      details.style.paddingBottom = "6px";
+      details.textContent = [
+        camera.state,
+        camera.mode,
+        camera.codec,
+        camera.resolution,
+        camera.fps === "—" ? "FPS —" : camera.fps + " FPS",
+        "ошибок: " + camera.errors,
+      ].join(" · ");
+      row.append(name, details);
+      if (camera.fallback) {
+        const fallback = document.createElement("span");
+        fallback.className = "muted";
+        fallback.style.fontSize = ".82rem";
+        fallback.style.paddingBottom = "6px";
+        fallback.textContent = "Причина перехода на программное декодирование: " + camera.fallback;
+        row.append(fallback);
+      }
+      cameraRows.append(row);
+    }
+    if (!(this._cameraDiagnostics || []).length) {
+      const empty = document.createElement("div");
+      empty.className = "hint";
+      empty.textContent = "Данные видеопотоков пока не получены.";
+      cameraRows.append(empty);
+    }
+
+    card.append(title, section, rows, cameraSection, cameraRows, button, hint, updateSection, updateActions, updateHint);
     root.append(style, card);
   }
 
