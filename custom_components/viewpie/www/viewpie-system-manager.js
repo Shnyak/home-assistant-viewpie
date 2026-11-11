@@ -8,9 +8,10 @@ class ViewpieSystemManager extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     const states = Object.values(hass?.states || {});
+    // Config-entry IDs are not exposed in hass.states. The integration adds
+    // its own stable attribute so cards can safely scope multiple Viewpie devices.
     const belongsToEntry = state => !this._entryId ||
-      state.entity_id.includes(this._entryId) ||
-      String(state.attributes?.config_entry_id || "") === this._entryId;
+      String(state.attributes?.viewpie_entry_id || "") === this._entryId;
     const normalize = value => String(value || "")
       .toLocaleLowerCase()
       .replace(/^viewpie\s*/, "")
@@ -34,14 +35,24 @@ class ViewpieSystemManager extends HTMLElement {
     ];
     this._rows = wanted.map(([label, aliases]) => {
       const domain = ["Paused", "Screen off"].includes(label) ? "binary_sensor." : "sensor.";
-      const state = states.find(item => item.entity_id.startsWith(domain) &&
-        belongsToEntry(item) &&
-        aliases.includes(normalize(item.attributes?.friendly_name || item.entity_id.split(".").pop().replace(/^viewpie_?/, "").replaceAll("_", " "))));
+      const state = states.find(item => {
+        if (!item.entity_id.startsWith(domain) || !belongsToEntry(item)) return false;
+        const candidates = [
+          item.attributes?.friendly_name,
+          item.entity_id.split(".").pop().replace(/^viewpie_?/, "").replaceAll("_", " "),
+        ].map(normalize);
+        return aliases.some(alias => candidates.some(name =>
+          name === alias || name.endsWith(` ${alias}`)
+        ));
+      });
       return {label, state};
     });
     const buttons = states.filter(s => s.entity_id.startsWith("button.") && belongsToEntry(s));
-    this._button = buttons.find(s =>
-      normalize(s.attributes?.friendly_name) === normalize("Перезагрузить Raspberry Pi")) || null;
+    const restartName = normalize("Перезагрузить Raspberry Pi");
+    this._button = buttons.find(s => {
+      const name = normalize(s.attributes?.friendly_name);
+      return name === restartName || name.endsWith(` ${restartName}`);
+    }) || null;
     this._render();
   }
 
@@ -65,12 +76,19 @@ class ViewpieSystemManager extends HTMLElement {
       ha-card{padding:16px}
       h2{font-size:1.2rem;margin:0 0 14px}
       .section{font-size:.9rem;font-weight:600;color:var(--secondary-text-color);margin:14px 0 6px}
-      .rows{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px}
-      .row{display:contents}
-      .name,.value{padding:8px 0;border-bottom:1px solid var(--divider-color)}
+      .rows{display:flex;flex-direction:column}
+      .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:center;
+        width:100%;padding:0;border:0;border-bottom:1px solid var(--divider-color);
+        background:transparent;color:inherit;font:inherit;text-align:left}
+      .row:not(:disabled){cursor:pointer}
+      .row:not(:disabled):hover{background:var(--secondary-background-color)}
+      .row:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+      .row:disabled{opacity:1;cursor:default}
+      .name,.value{padding:9px 0}
       .name{color:var(--primary-text-color)}
       .value{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
       .muted{color:var(--secondary-text-color);font-weight:400}
+      .row:not(:disabled) .value::after{content:"›";padding-left:8px;color:var(--secondary-text-color)}
       button{font:inherit;border:0;border-radius:8px;padding:11px 16px;background:var(--primary-color);
         color:var(--text-primary-color,#fff);cursor:pointer;width:100%;margin-top:16px}
       button:disabled{opacity:.55;cursor:default}
@@ -84,14 +102,29 @@ class ViewpieSystemManager extends HTMLElement {
     section.textContent = "Состояние системы";
     const rows = document.createElement("div");
     rows.className = "rows";
-    for (const row of (this._rows || [])) {
-      const name = document.createElement("div");
+    for (const rowData of (this._rows || [])) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "row";
+      row.disabled = !rowData.state;
+      row.setAttribute("aria-label", `${rowData.label}: ${this._formatValue(rowData)}. Открыть историю`);
+      const name = document.createElement("span");
       name.className = "name";
-      name.textContent = row.label;
-      const value = document.createElement("div");
-      value.className = "value" + (!row.state || ["unknown", "unavailable"].includes(row.state.state) ? " muted" : "");
-      value.textContent = this._formatValue(row);
-      rows.append(name, value);
+      name.textContent = rowData.label;
+      const value = document.createElement("span");
+      value.className = "value" + (!rowData.state || ["unknown", "unavailable"].includes(rowData.state.state) ? " muted" : "");
+      value.textContent = this._formatValue(rowData);
+      row.append(name, value);
+      if (rowData.state) {
+        row.addEventListener("click", () => {
+          this.dispatchEvent(new CustomEvent("hass-more-info", {
+            detail: {entityId: rowData.state.entity_id},
+            bubbles: true,
+            composed: true,
+          }));
+        });
+      }
+      rows.append(row);
     }
 
     const button = document.createElement("button");
