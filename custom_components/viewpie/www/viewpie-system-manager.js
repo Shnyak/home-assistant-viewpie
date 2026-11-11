@@ -305,7 +305,7 @@ class ViewpieSystemManager extends HTMLElement {
     terminalLog.scrollTop = wasAtBottom ? terminalLog.scrollHeight : previousScrollTop;
   }
 
-  getCardSize() { return 10; }
+  getCardSize() { return 14; }
   static getStubConfig() { return {title:"Управление системой"}; }
 }
 if (!customElements.get("viewpie-system-manager")) {
