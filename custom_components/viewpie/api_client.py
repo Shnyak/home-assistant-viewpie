@@ -108,8 +108,18 @@ class ViewpieApiClient:
             async with self._session.request(
                 method, url, json=data, headers=headers
             ) as response:
-                response.raise_for_status()
                 text = await response.text()
+                if response.status >= 400:
+                    detail = text.strip()
+                    try:
+                        payload = json.loads(text) if text else {}
+                        if isinstance(payload, dict):
+                            detail = str(payload.get("error") or payload.get("message") or detail)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                    raise ViewpieConnectionError(
+                        f"Viewpie returned HTTP {response.status}: {detail or response.reason}"
+                    )
                 return json.loads(text) if text else {}
         except aiohttp.ClientError as err:
             _LOGGER.error("viewpie request failed (%s %s): %s", method, url, err)
