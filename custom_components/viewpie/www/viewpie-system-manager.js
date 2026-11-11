@@ -50,6 +50,21 @@ class ViewpieSystemManager extends HTMLElement {
       });
       return {label, state};
     });
+    const findNamed = (domain, aliases) => states.find(item => {
+      if (!item.entity_id.startsWith(domain + ".") || !belongsToEntry(item)) return false;
+      const candidates = [
+        item.attributes?.friendly_name,
+        item.entity_id.split(".").pop().replace(/^viewpie_?/, "").replaceAll("_", " "),
+      ].map(normalize);
+      return aliases.some(alias => candidates.some(name => name === alias || name.endsWith(" " + alias)));
+    }) || null;
+    this._controls = {
+      screen: findNamed("switch", ["экран"]),
+      autoPause: findNamed("switch", ["авто пауза видео"]),
+      debugOverlay: findNamed("switch", ["диагностическая информация"]),
+      hardwareLimit: findNamed("number", ["лимит аппаратных декодеров"]),
+      screenBootMode: findNamed("select", ["поведение экрана после подачи питания"]),
+    };
     const buttons = states.filter(s => s.entity_id.startsWith("button.") && belongsToEntry(s));
     const restartName = normalize("Перезагрузить Raspberry Pi");
     this._checkUpdateButton = buttons.find(s => normalize(s.attributes?.friendly_name).endsWith(normalize("Проверить обновления Viewpie"))) || null;
@@ -66,6 +81,16 @@ class ViewpieSystemManager extends HTMLElement {
     if (!state || ["unknown", "unavailable"].includes(state.state)) return "Неизвестно";
     if (row.label === "Paused" || row.label === "Screen off") {
       return state.state === "on" ? "Да" : "Нет";
+    }
+    if (row.label === "Uptime") {
+      const seconds = Math.max(0, Number(state.state) || 0);
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (days) return days + " дн. " + hours + " ч. " + minutes + " мин.";
+      if (hours) return hours + " ч. " + minutes + " мин.";
+      if (minutes) return minutes + " мин.";
+      return Math.floor(seconds) + " сек.";
     }
     const unit = state.attributes?.unit_of_measurement;
     return unit ? `${state.state} ${unit}` : state.state;
@@ -102,6 +127,16 @@ class ViewpieSystemManager extends HTMLElement {
         color:var(--text-primary-color,#fff);cursor:pointer;width:100%;margin-top:16px}
       button:disabled{opacity:.55;cursor:default}
       .hint{margin-top:10px;color:var(--secondary-text-color);font-size:.88rem}
+      .controls{display:flex;flex-direction:column;gap:10px}
+      .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;
+        padding:8px 0;border-bottom:1px solid var(--divider-color)}
+      .control-name{color:var(--primary-text-color);font-size:.92rem}
+      .control-input{max-width:180px;min-width:90px;font:inherit;color:var(--primary-text-color);
+        background:var(--input-fill-color, var(--secondary-background-color));border:1px solid var(--divider-color);
+        border-radius:8px;padding:7px 9px}
+      .control-action{width:auto;margin:0;padding:8px 12px}
+      .control-value{display:flex;align-items:center;gap:8px}
+      .control-value input[type=checkbox]{width:22px;height:22px;accent-color:var(--primary-color)}
       .terminal{margin-top:12px;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:#101418;color:#d8e2dc}
       .terminal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;background:#20282e;font-size:.82rem}
       .terminal-state{font-weight:600}
@@ -144,6 +179,137 @@ class ViewpieSystemManager extends HTMLElement {
       }
       rows.append(row);
     }
+
+    const controlsSection = document.createElement("div");
+    controlsSection.className = "section";
+    controlsSection.textContent = "Управление";
+    const controls = document.createElement("div");
+    controls.className = "controls";
+
+    const addSwitchControl = (label, entity) => {
+      const row = document.createElement("div");
+      row.className = "control-row";
+      const name = document.createElement("span");
+      name.className = "control-name";
+      name.textContent = label;
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = entity?.state === "on";
+      input.disabled = !entity || ["unknown", "unavailable"].includes(entity.state);
+      input.setAttribute("aria-label", label);
+      input.addEventListener("change", async () => {
+        if (!this._hass || !entity) return;
+        const turnOn = input.checked;
+        // The displayed value remains the last state confirmed by Home Assistant.
+        input.checked = entity.state === "on";
+        input.disabled = true;
+        try {
+          await this._hass.callService("switch", turnOn ? "turn_on" : "turn_off", {
+            entity_id: entity.entity_id,
+          });
+        } catch (err) {
+          input.disabled = false;
+          window.alert("Не удалось изменить настройку «" + label + "»: " + (err?.message || err));
+        }
+      });
+      const value = document.createElement("span");
+      value.className = "control-value";
+      value.append(input);
+      row.append(name, value);
+      controls.append(row);
+    };
+
+    const addNumberControl = (label, entity) => {
+      const row = document.createElement("div");
+      row.className = "control-row";
+      const name = document.createElement("label");
+      name.className = "control-name";
+      name.textContent = label;
+      const value = document.createElement("div");
+      value.className = "control-value";
+      const input = document.createElement("input");
+      input.className = "control-input";
+      input.type = "number";
+      input.min = "0";
+      input.max = "16";
+      input.step = "1";
+      input.value = entity?.state ?? "6";
+      input.disabled = !entity || ["unknown", "unavailable"].includes(entity.state);
+      input.setAttribute("aria-label", label);
+      const apply = document.createElement("button");
+      apply.className = "control-action";
+      apply.type = "button";
+      apply.textContent = "Применить";
+      apply.disabled = input.disabled;
+      apply.addEventListener("click", async () => {
+        if (!this._hass || !entity) return;
+        const next = Number(input.value);
+        if (!Number.isInteger(next) || next < 0 || next > 16) {
+          window.alert("Укажите целое число от 0 до 16.");
+          return;
+        }
+        input.disabled = true;
+        apply.disabled = true;
+        try {
+          await this._hass.callService("number", "set_value", {
+            entity_id: entity.entity_id,
+            value: next,
+          });
+        } catch (err) {
+          input.disabled = false;
+          apply.disabled = false;
+          input.value = entity.state;
+          window.alert("Не удалось изменить количество аппаратных декодеров: " + (err?.message || err));
+        }
+      });
+      value.append(input, apply);
+      row.append(name, value);
+      controls.append(row);
+    };
+
+    const addSelectControl = (label, entity) => {
+      const row = document.createElement("div");
+      row.className = "control-row";
+      const name = document.createElement("label");
+      name.className = "control-name";
+      name.textContent = label;
+      const select = document.createElement("select");
+      select.className = "control-input";
+      const options = entity?.attributes?.options || [];
+      for (const option of options) {
+        const item = document.createElement("option");
+        item.value = option;
+        item.textContent = option;
+        select.append(item);
+      }
+      if (entity?.state && options.includes(entity.state)) select.value = entity.state;
+      select.disabled = !entity || ["unknown", "unavailable"].includes(entity.state);
+      select.setAttribute("aria-label", label);
+      select.addEventListener("change", async () => {
+        if (!this._hass || !entity) return;
+        const option = select.value;
+        select.value = entity.state;
+        select.disabled = true;
+        try {
+          await this._hass.callService("select", "select_option", {
+            entity_id: entity.entity_id,
+            option,
+          });
+        } catch (err) {
+          select.disabled = false;
+          window.alert("Не удалось изменить поведение экрана: " + (err?.message || err));
+        }
+      });
+      row.append(name, select);
+      controls.append(row);
+    };
+
+    addSwitchControl("Экран", this._controls?.screen);
+    addSwitchControl("Авто пауза видео", this._controls?.autoPause);
+    addSwitchControl("Диагностическая информация", this._controls?.debugOverlay);
+    addNumberControl("Количество аппаратных декодеров", this._controls?.hardwareLimit);
+    addSelectControl("После подачи питания на экран", this._controls?.screenBootMode);
+    controlsSection.append(controls);
 
     const button = document.createElement("button");
     button.textContent = this._button ? "Перезагрузить Raspberry Pi" : "Кнопка перезагрузки недоступна";
@@ -343,7 +509,7 @@ class ViewpieSystemManager extends HTMLElement {
     terminalLog.className = journal.log ? "" : "terminal-empty";
     terminal.append(terminalLog);
 
-    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint, terminal);
+    card.append(title, section, rows, controlsSection, button, hint, updateSection, updateActions, updateHint, terminal);
     root.append(style, card);
     terminalLog.scrollTop = wasAtBottom ? terminalLog.scrollHeight : previousScrollTop;
   }
