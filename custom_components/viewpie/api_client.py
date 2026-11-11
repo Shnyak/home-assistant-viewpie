@@ -95,6 +95,7 @@ class ViewpieApiClient:
         path: str,
         data: Optional[dict[str, Any]] = None,
         extra_headers: Optional[dict[str, str]] = None,
+        request_timeout: Optional[ClientTimeout] = None,
     ) -> Any:
         if self._session is None:
             await self.async_init()
@@ -106,7 +107,7 @@ class ViewpieApiClient:
         _LOGGER.debug("viewpie request: %s %s", method, url)
         try:
             async with self._session.request(
-                method, url, json=data, headers=headers
+                method, url, json=data, headers=headers, timeout=request_timeout
             ) as response:
                 text = await response.text()
                 if response.status >= 400:
@@ -169,7 +170,9 @@ class ViewpieApiClient:
         data: dict[str, Any] = {"camera": camera}
         if duration:
             data["duration_seconds"] = int(duration)
-        result = await self._request("POST", API_FULLSCREEN, data)
+        result = await self._request(
+            "POST", API_FULLSCREEN, data, request_timeout=ClientTimeout(total=15)
+        )
         return result if isinstance(result, dict) else {}
 
     async def get_settings(self) -> dict[str, Any]:
