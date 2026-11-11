@@ -136,8 +136,7 @@ manage_panel:
       required: false
       description: YAML/JSON list, for example [{"slot":"a","feeds":["yard"]}]
       selector:
-        text:
-          multiple: true
+        object:
     entry_id:
       required: false
       advanced: true
@@ -152,7 +151,8 @@ reorder_panels:
       required: true
       description: Complete ordered list of panel IDs, with every panel included exactly once.
       selector:
-        object:
+        text:
+          multiple: true
     entry_id:
       required: false
       advanced: true
