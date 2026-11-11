@@ -66,7 +66,7 @@ class ViewpieCameraManager extends HTMLElement {
     const card=this._el("ha-card");
     card.append(this._el("h2",{},this._config.title || "Управление камерами Viewpie"));
     card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменение параметров камеры применяется сразу. Новую камеру добавьте в раскладку нужной панели."));
-    card.append(this._el("p",{class:"muted"},"Автоматически заполняет свободные аппаратные слоты по имени камеры после явно выбранных Hardware-камер; Software всегда декодируется процессором. Отдельный основной поток в полноэкранном режиме также использует программное декодирование, чтобы не занимать слот сетки."));
+    card.append(this._el("p",{class:"muted"},"Автоматически заполняет свободные аппаратные слоты по имени камеры после явно выбранных Hardware-камер; Software всегда декодируется процессором. Hardware — приоритет аппаратного декодирования с автоматическим переходом на программное при ошибке. Отдельный основной поток в полноэкранном режиме также использует программное декодирование, чтобы не занимать слот сетки."));
     const fields=this._el("div",{class:"fields"});
     const select=this._el("select");
     select.append(this._el("option",{value:""},"Новая камера — добавить"));
@@ -100,7 +100,7 @@ class ViewpieCameraManager extends HTMLElement {
     full.addEventListener("input",()=>this._cameraFullscreenUrl=full.value);
     fields.append(this._field("RTSP URL для fullscreen",full));
     const decoder=this._el("select");
-    [["auto","Автоматически (до лимита)"] ,["hardware","Аппаратное декодирование"],["software","Программное декодирование"]].forEach(([value,label])=>decoder.append(this._el("option",{value},label)));
+    [["auto","Автоматически (до лимита)"] ,["hardware","Аппаратное (при сбое — программное)"],["software","Программное декодирование"]].forEach(([value,label])=>decoder.append(this._el("option",{value},label)));
     decoder.value=this._cameraDecoder;
     decoder.addEventListener("change",()=>this._cameraDecoder=decoder.value);
     fields.append(this._field("Декодирование в сетке",decoder));
