@@ -107,6 +107,30 @@ class ViewpieViewSelector extends HTMLElement {
     }
   }
 
+  async _movePanel(panelId, delta) {
+    if (this._busy || !this._hass) return;
+    const order = [...this._panels];
+    const index = order.indexOf(panelId);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= order.length) return;
+    [order[index], order[target]] = [order[target], order[index]];
+    this._busy = true;
+    this._status = "Сохраняю порядок панелей…";
+    this._render();
+    try {
+      await this._hass.callService("viewpie", "reorder_panels", {
+        entry_id: this._entryId,
+        order
+      });
+      this._status = "Порядок панелей сохранён.";
+    } catch (err) {
+      this._status = "Не удалось изменить порядок: " + (err?.message || err);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+  }
+
   async _choosePanel(panelId) {
     if (this._busy || !this._hass) return;
     this._busy = true;
@@ -175,6 +199,8 @@ class ViewpieViewSelector extends HTMLElement {
         padding:8px 10px;border:1px solid var(--divider-color);border-radius:9px}
       .choice-label{min-width:0;overflow-wrap:anywhere}
       .choice-label.active{font-weight:600;color:var(--success-color,var(--primary-color))}
+      .panel-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+      .panel-actions button{padding:6px 9px;min-width:34px}
       button{flex:0 0 auto;font:inherit;border:1px solid var(--divider-color);border-radius:8px;padding:8px 13px;
         background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}
       button.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}
@@ -204,11 +230,21 @@ class ViewpieViewSelector extends HTMLElement {
       const active = id === activePanel;
       const row = this._el("div", {class: "choice-row"});
       row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, this._panelLabel(id)));
+      const actions = this._el("div", {class: "panel-actions"});
+      const up = this._el("button", {}, "↑");
+      up.title = "Переместить выше";
+      up.disabled = this._busy || this._panels.indexOf(id) === 0;
+      up.addEventListener("click", () => this._movePanel(id, -1));
+      const down = this._el("button", {}, "↓");
+      down.title = "Переместить ниже";
+      down.disabled = this._busy || this._panels.indexOf(id) === this._panels.length - 1;
+      down.addEventListener("click", () => this._movePanel(id, 1));
       const button = this._el("button", {class: active ? "active" : ""}, active ? "Активна" : "Переключить");
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy || active;
       button.addEventListener("click", () => this._choosePanel(id));
-      row.append(button);
+      actions.append(up, down, button);
+      row.append(actions);
       panels.append(row);
     });
     if (!this._panels.length) panels.append(this._el("span", {class: "muted"}, "Панели не найдены."));
