@@ -35,6 +35,7 @@ async def async_setup_entry(
         [
             ViewpiePauseSwitch(coordinator),
             ViewpiePauseOffScreenSwitch(coordinator),
+            ViewpieDebugOverlaySwitch(coordinator),
         ]
     )
 
@@ -107,4 +108,46 @@ class ViewpiePauseOffScreenSwitch(ViewpieEntity, SwitchEntity):
         except ViewpieConnectionError as err:
             raise HomeAssistantError(
                 f"Failed to update viewpie settings: {err}"
+            ) from err
+
+
+class ViewpieDebugOverlaySwitch(ViewpieEntity, SwitchEntity):
+    """Enable the readable diagnostics overlay on camera streams and panels."""
+
+    _attr_name = "Отладочная информация на экране"
+    _attr_icon = "mdi:monitor-eye"
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        """Initialize the diagnostics overlay switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_debug_overlay"
+
+    @property
+    def available(self) -> bool:
+        """Available only when the device reports the setting."""
+        return self.coordinator.last_update_success and "debug_overlay" in (
+            self.coordinator.data or {}
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return whether the diagnostics overlay is enabled."""
+        return bool(self.status.get("debug_overlay", False))
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable diagnostics overlay."""
+        try:
+            await self.coordinator.async_update_settings(debug_overlay=True)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to enable Viewpie diagnostics overlay: {err}"
+            ) from err
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable diagnostics overlay."""
+        try:
+            await self.coordinator.async_update_settings(debug_overlay=False)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to disable Viewpie diagnostics overlay: {err}"
             ) from err
