@@ -331,8 +331,26 @@ class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
 
     @property
     def native_value(self) -> str:
+        if self.status.get("update_check_status") == "error":
+            return "Ошибка проверки"
         if not self.coordinator.last_update_success:
             return "Неизвестно"
         if "update_available" not in self.status:
             return "Не проверено"
         return "Да" if self.status.get("update_available") else "Нет"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "latest_version": self.status.get("latest_version"),
+            "installed_version": self.status.get("installed_version"),
+            "architecture": self.status.get("architecture"),
+            "can_install": bool(self.status.get("can_install", False)),
+            "package_available": bool(self.status.get("package_available", False)),
+            "checksum_available": bool(self.status.get("checksum_available", False)),
+            "release_url": self.status.get("release_url"),
+            "release_notes": self.status.get("release_notes"),
+            "checked_at": self.status.get("update_checked_at"),
+            "check_message": self.status.get("update_check_message"),
+            "viewpie_entry_id": self.coordinator.entry.entry_id,
+        }
