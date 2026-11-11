@@ -392,6 +392,9 @@ class ViewpieUpdateJournalSensor(ViewpieEntity, SensorEntity):
             "updated_at": update.get("updated_at"),
             "finished_at": update.get("finished_at"),
             "exit_code": update.get("exit_code"),
+            "progress_percent": update.get("progress_percent"),
+            "downloaded_bytes": update.get("downloaded_bytes"),
+            "total_bytes": update.get("total_bytes"),
             "log": update.get("log", ""),
             "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
