@@ -1,10 +1,11 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 from typing import Any, Optional
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.event import async_track_time_interval
 from .api_client import ViewpieApiClient
 from .const import DOMAIN, OPTION_GRID, UPDATE_INTERVAL
 _LOGGER = logging.getLogger(__name__)
@@ -17,6 +18,8 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client, self.entry = client, entry
         self._update_info: dict[str, Any] = {}
         self._last_update_failure: str | None = None
+        self._update_journal_unsub = None
+        self._update_journal_poll_attempts = 0
     async def _async_update_data(self) -> dict[str, Any]:
         try: data = await self.client.get_status()
         except Exception as err: raise UpdateFailed(f"Error polling viewpie status: {err}") from err
@@ -119,8 +122,43 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_request_refresh()
         return dict(self._update_info)
 
+    def async_start_update_journal_polling(self) -> None:
+        """Poll the update log every two seconds while an install is starting/running."""
+        if self._update_journal_unsub is not None:
+            return
+        self._update_journal_poll_attempts = 30
+        self._update_journal_unsub = async_track_time_interval(
+            self.hass, self._async_poll_update_journal, timedelta(seconds=2)
+        )
+
+    def async_stop_update_journal_polling(self) -> None:
+        if self._update_journal_unsub is not None:
+            self._update_journal_unsub()
+            self._update_journal_unsub = None
+
+    async def _async_poll_update_journal(self, _now) -> None:
+        try:
+            update_status = await self.client.get_update_status()
+            data = dict(self.data or {})
+            data["update_status"] = update_status
+            self.async_set_updated_data(data)
+            status = str(update_status.get("status") or "unknown")
+            if status == "running":
+                self._update_journal_poll_attempts = 30
+            elif status in ("success", "failed"):
+                self.async_stop_update_journal_polling()
+                return
+            else:
+                self._update_journal_poll_attempts -= 1
+        except Exception as err:
+            _LOGGER.debug("Could not poll Viewpie updater journal: %s", err)
+            self._update_journal_poll_attempts -= 1
+        if self._update_journal_poll_attempts <= 0:
+            self.async_stop_update_journal_polling()
+
     async def async_install_update(self, token: str) -> dict[str, Any]:
         """Start installation through the restricted backend updater."""
+        self.async_start_update_journal_polling()
         try:
             result = await self.client.install_update(token)
             await self.async_request_refresh()
