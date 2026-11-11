@@ -48,6 +48,7 @@ async def async_setup_entry(
             ViewpieSoftwareBuildDateSensor(coordinator),
             ViewpieLatestVersionSensor(coordinator),
             ViewpieUpdateAvailableSensor(coordinator),
+            ViewpieUpdateJournalSensor(coordinator),
             ViewpieDecoderStatusSensor(coordinator),
             ViewpieHardwareDecoderCountSensor(coordinator),
             ViewpieSoftwareDecoderCountSensor(coordinator),
@@ -352,5 +353,45 @@ class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
             "release_notes": self.status.get("release_notes"),
             "checked_at": self.status.get("update_checked_at"),
             "check_message": self.status.get("update_check_message"),
+            "viewpie_entry_id": self.coordinator.entry.entry_id,
+        }
+
+
+class ViewpieUpdateJournalSensor(ViewpieEntity, SensorEntity):
+    """Current update phase and copyable diagnostic journal."""
+
+    _attr_name = "Update process"
+    _attr_icon = "mdi:console"
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_update_journal"
+
+    @property
+    def _update(self) -> dict[str, Any]:
+        value = (self.coordinator.data or {}).get("update_status", {})
+        return value if isinstance(value, dict) else {}
+
+    @property
+    def native_value(self) -> str:
+        status = str(self._update.get("status") or "unknown")
+        phase = str(self._update.get("phase") or "unknown")
+        return f"{status}: {phase}"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        update = self._update
+        return {
+            "status": update.get("status"),
+            "phase": update.get("phase"),
+            "message": update.get("message"),
+            "error": update.get("error"),
+            "version": update.get("version"),
+            "architecture": update.get("architecture"),
+            "started_at": update.get("started_at"),
+            "updated_at": update.get("updated_at"),
+            "finished_at": update.get("finished_at"),
+            "exit_code": update.get("exit_code"),
+            "log": update.get("log", ""),
             "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
