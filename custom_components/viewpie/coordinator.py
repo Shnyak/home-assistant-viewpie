@@ -18,6 +18,12 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try: data = await self.client.get_status()
         except Exception as err: raise UpdateFailed(f"Error polling viewpie status: {err}") from err
         try:
+            settings = await self.client.get_settings()
+            if isinstance(settings, dict):
+                data.update(settings)
+        except Exception as err:
+            _LOGGER.debug("Could not refresh Viewpie settings: %s", err)
+        try:
             panels = await self.client.get_panels()
             data["panels"] = [str(p.get("id") if isinstance(p, dict) else p) for p in panels if (p.get("id") if isinstance(p, dict) else p)]
         except Exception as err:
