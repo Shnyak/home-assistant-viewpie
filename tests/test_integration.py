@@ -273,6 +273,20 @@ async def test_services_and_unload(hass: HomeAssistant, mock_client):
     mock_client.async_close.assert_awaited()
 
 
+
+async def test_options_flow_opens_and_saves_restart_token(hass: HomeAssistant, mock_client):
+    entry = await _add_entry(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"restart_token": "test-restart-token"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.options["restart_token"] == "test-restart-token"
+
+
 async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_client):
     """Exercise config flow, setup and entity creation without background sockets."""
     result = await hass.config_entries.flow.async_init(
