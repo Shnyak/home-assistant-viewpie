@@ -16,9 +16,30 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN}_{entry.entry_id}", update_interval=UPDATE_INTERVAL)
         self.client, self.entry = client, entry
         self._update_info: dict[str, Any] = {}
+        self._last_update_failure: str | None = None
     async def _async_update_data(self) -> dict[str, Any]:
         try: data = await self.client.get_status()
         except Exception as err: raise UpdateFailed(f"Error polling viewpie status: {err}") from err
+        try:
+            update_status = await self.client.get_update_status()
+            data["update_status"] = update_status
+            failure = (
+                str(update_status.get("error") or update_status.get("message") or "")
+                if update_status.get("status") == "failed" else ""
+            )
+            if failure:
+                signature = f"{update_status.get('updated_at', '')}:{failure}"
+                if signature != self._last_update_failure:
+                    _LOGGER.error(
+                        "Viewpie update failed during %s: %s",
+                        update_status.get("phase", "unknown"), failure,
+                    )
+                    self._last_update_failure = signature
+            elif update_status.get("status") == "success":
+                self._last_update_failure = None
+        except Exception as err:
+            _LOGGER.debug("Could not refresh Viewpie update journal: %s", err)
+            data["update_status"] = (self.data or {}).get("update_status", {})
         try:
             settings = await self.client.get_settings()
             if isinstance(settings, dict):
@@ -100,7 +121,13 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_install_update(self, token: str) -> dict[str, Any]:
         """Start installation through the restricted backend updater."""
-        return await self.client.install_update(token)
+        try:
+            result = await self.client.install_update(token)
+            await self.async_request_refresh()
+            return result
+        except Exception as err:
+            _LOGGER.exception("Could not start Viewpie update")
+            raise
 
     async def async_pause(self) -> None: await self.client.pause(); await self.async_request_refresh()
     async def async_resume(self) -> None: await self.client.resume(); await self.async_request_refresh()
