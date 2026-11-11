@@ -142,3 +142,18 @@ manage_panel:
       advanced: true
       selector:
         text:
+
+reorder_panels:
+  name: Reorder panels
+  description: Persist the display order of every configured Viewpie panel.
+  fields:
+    order:
+      required: true
+      description: Complete ordered list of panel IDs, with every panel included exactly once.
+      selector:
+        object:
+    entry_id:
+      required: false
+      advanced: true
+      selector:
+        text:
