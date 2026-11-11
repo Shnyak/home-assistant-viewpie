@@ -23,6 +23,11 @@ class ViewpieEntity(CoordinatorEntity[ViewpieCoordinator]):
         self._host = host
         self._port = coordinator.entry.data.get(CONF_PORT, DEFAULT_PORT)
         self._attr_suggested_entity_id = f"{DOMAIN}_{slugify(host)}"
+        # hass.states does not include Home Assistant's config_entry_id.
+        # Expose a stable integration-specific marker for the bundled Lovelace cards.
+        self._attr_extra_state_attributes = {
+            "viewpie_entry_id": coordinator.entry.entry_id,
+        }
 
     @property
     def device_info(self) -> DeviceInfo:
