@@ -313,3 +313,28 @@ async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_clie
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     mock_client.async_close.assert_awaited()
+
+
+async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, mock_client):
+    entry = await _add_entry(hass)
+    coordinator = hass.data[DOMAIN][entry.entry_id].coordinator
+
+    await coordinator.async_check_update()
+    mock_client.check_update.assert_awaited_once()
+    assert coordinator.data["latest_version"] == "0.2.22-fork"
+    assert coordinator.data["can_install"] is True
+
+    hass.config_entries.async_update_entry(entry, options={"restart_token": "test-restart-token"})
+    await coordinator.async_request_refresh()
+    registry = er.async_get(hass)
+    install_entity_id = registry.async_get_entity_id(
+        "button", DOMAIN, f"{entry.entry_id}_install_update"
+    )
+    assert install_entity_id is not None
+    entity = hass.data[DOMAIN][entry.entry_id].coordinator
+    from custom_components.viewpie.button import ViewpieInstallUpdateButton
+    install_button = ViewpieInstallUpdateButton(entity)
+    assert install_button.available
+
+    await install_button.async_press()
+    mock_client.install_update.assert_awaited_once_with("test-restart-token")
