@@ -452,6 +452,7 @@ def _register_services(hass: HomeAssistant) -> None:
             vol.Required("name"): cv.string,
             vol.Optional("url"): cv.string,
             vol.Optional("fullscreen_url"): cv.string,
+            vol.Optional("decoder", default="auto"): vol.In(["auto", "hardware", "software"]),
             vol.Optional(ATTR_ENTRY_ID): cv.string,
         }),
     )
