@@ -35,6 +35,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             ViewpiePanelSelect(coordinator),
+            ViewpieStartupPanelSelect(coordinator),
             ViewpieFullscreenSelect(coordinator),
         ]
     )
@@ -182,6 +183,39 @@ class ViewpiePanelSelect(ViewpieSelectBase):
         except ViewpieConnectionError as err:
             raise HomeAssistantError(
                 f"Failed to activate panel '{option}': {err}"
+            ) from err
+        self._record_selection(option)
+
+
+
+class ViewpieStartupPanelSelect(ViewpieSelectBase):
+    """Select the panel that Viewpie activates after a restart."""
+
+    _attr_name = "Стартовая панель"
+    _attr_icon = "mdi:home-import-outline"
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._base_unique_id}_startup_panel"
+
+    def _build_options(self) -> list[str]:
+        return [str(panel) for panel in self.status.get("panels", [])]
+
+    @property
+    def current_option(self) -> str | None:
+        configured = self.status.get("startup_panel")
+        if configured is not None and str(configured) in self.options:
+            return str(configured)
+        return self.options[0] if self.options else None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self.options:
+            raise HomeAssistantError(f"Unknown startup panel: {option}")
+        try:
+            await self.coordinator.async_update_settings(startup_panel=option)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to set startup panel '{option}': {err}"
             ) from err
         self._record_selection(option)
 
