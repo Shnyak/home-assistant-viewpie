@@ -180,7 +180,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "updated_at": timestamp,
                 "finished_at": timestamp,
                 "exit_code": None,
-                "log": (old_log + "\\n" + line).strip(),
+                "log": (old_log + "\n" + line).strip(),
             }
             self.async_set_updated_data(data)
             self.async_stop_update_journal_polling()
