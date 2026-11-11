@@ -41,6 +41,7 @@ def mock_client_fixture():
         inst.grid = AsyncMock(return_value={})
         inst.fullscreen = AsyncMock(return_value={})
         inst.activate_panel = AsyncMock(return_value={})
+        inst.reorder_panels = AsyncMock(return_value={})
         inst.update_settings = AsyncMock(return_value={})
         inst.reload_config = AsyncMock(return_value={})
         inst.check_update = AsyncMock(return_value={
