@@ -373,3 +373,49 @@ async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, moc
 
     await install_button.async_press()
     mock_client.install_update.assert_awaited_once_with("test-restart-token")
+
+
+
+async def test_screen_power_mode_and_hardware_decoder_limit_controls(hass, mock_client):
+    """Expose the three screen boot modes and editable hardware decoder count."""
+    from homeassistant.helpers import entity_registry as er
+
+    entry = await _add_entry(hass)
+    registry = er.async_get(hass)
+
+    mode_entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_screen_boot_mode"
+    )
+    assert mode_entity_id is not None
+    mode = hass.states.get(mode_entity_id)
+    assert mode is not None
+    assert mode.state == "Последнее состояние"
+    assert mode.attributes["options"] == [
+        "Всегда включать",
+        "Всегда выключать",
+        "Последнее состояние",
+    ]
+
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": mode_entity_id, "option": "Всегда выключать"},
+        blocking=True,
+    )
+    mock_client.update_settings.assert_awaited_with(screen_boot_mode="always_off")
+
+    number_entity_id = registry.async_get_entity_id(
+        "number", DOMAIN, f"{entry.entry_id}_hardware_decoder_limit"
+    )
+    assert number_entity_id is not None
+    number = hass.states.get(number_entity_id)
+    assert number is not None
+    assert float(number.state) == 6
+
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": number_entity_id, "value": 9},
+        blocking=True,
+    )
+    mock_client.update_settings.assert_awaited_with(hardware_decoder_limit=9)
