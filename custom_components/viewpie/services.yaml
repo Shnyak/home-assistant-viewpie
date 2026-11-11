@@ -81,7 +81,7 @@ manage_camera:
     decoder:
       required: false
       default: auto
-      description: Per-camera decode preference.
+      description: Per-camera decode preference. Hardware falls back to software if hardware decoding fails.
       selector:
         select:
           options:
