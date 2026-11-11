@@ -139,7 +139,9 @@ async def test_entities_states(hass: HomeAssistant, mock_client):
 
     sensor = states[f"sensor.{DOMAIN}_viewpi_cpu_temperature"]
     assert sensor.state == "54.3"
+    assert sensor.attributes["viewpie_entry_id"] == entry.entry_id
     bs = states[f"binary_sensor.{DOMAIN}_viewpi_paused"]
+    assert bs.attributes["viewpie_entry_id"] == entry.entry_id
     assert bs.state == "off"
     bfs = states[f"binary_sensor.{DOMAIN}_viewpi_fullscreen_mode"]
     assert bfs.state == "off"
