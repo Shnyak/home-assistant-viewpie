@@ -200,7 +200,7 @@ async def test_panel_management_reloads_config_after_successful_write(hass: Home
     mock_client.reload_config.assert_awaited_once()
 
 
-async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: HomeAssistant, mock_client):
+async def test_camera_delete_clears_panel_cells_without_duplicate_reload(hass: HomeAssistant, mock_client):
     await _add_entry(hass)
     mock_client.get_panels.return_value = [{"id": "yard"}]
     from unittest.mock import AsyncMock
@@ -226,7 +226,29 @@ async def test_camera_delete_clears_panel_cells_before_delete_and_reload(hass: H
     assert updated["layout"] == ". b\nc d"
     assert updated["viewports"] == [{"slot": "b", "feeds": ["yard"]}]
     mock_client.delete_camera.assert_awaited_once_with("pool")
-    mock_client.reload_config.assert_awaited_once()
+    # The Viewpie camera DELETE endpoint already reloads its native renderer.
+    # The HA integration must not issue a second reload.
+    mock_client.reload_config.assert_not_awaited()
+
+
+async def test_manage_camera_passes_decoder_preference(hass: HomeAssistant, mock_client):
+    await _add_entry(hass)
+    from unittest.mock import AsyncMock
+    mock_client.create_camera = AsyncMock(return_value={})
+    await hass.services.async_call(
+        DOMAIN,
+        "manage_camera",
+        {
+            "operation": "create",
+            "name": "priority_cam",
+            "url": "rtsp://camera/stream",
+            "decoder": "hardware",
+        },
+        blocking=True,
+    )
+    mock_client.create_camera.assert_awaited_once_with(
+        "priority_cam", "rtsp://camera/stream", None, "hardware"
+    )
 
 
 async def test_services_and_unload(hass: HomeAssistant, mock_client):
