@@ -228,6 +228,15 @@ class ViewpieDecoderStatusSensor(ViewpieEntity, SensorEntity):
                 "mode": item.get("mode"),
                 "state": item.get("state", "unknown"),
                 "fallback_reason": item.get("fallback_reason"),
+                "codec": item.get("codec"),
+                "resolution": (
+                    f"{item.get('width')}x{item.get('height')}"
+                    if item.get("width") and item.get("height") else None
+                ),
+                "width": item.get("width"),
+                "height": item.get("height"),
+                "fps": item.get("fps"),
+                "errors": item.get("errors", 0),
             }
         return {
             "hardware_count": counts["hardware"],
@@ -306,6 +315,12 @@ class ViewpieCameraDecoderSensor(ViewpieEntity, SensorEntity):
             "mode": status.get("mode"),
             "state": status.get("state", "unknown"),
             "fallback_reason": status.get("fallback_reason"),
+            "codec": status.get("codec"),
+            "resolution": status.get("resolution"),
+            "width": status.get("width"),
+            "height": status.get("height"),
+            "fps": status.get("fps"),
+            "errors": status.get("errors", 0),
             "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
 
