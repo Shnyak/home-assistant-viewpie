@@ -57,7 +57,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.3.0")
+        self.assertEqual(manifest["version"], "1.4.0")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -288,3 +288,30 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_startup_panel_select_is_available_only_with_native_setting(self):
+        source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
+        self.assertIn("ViewpieStartupPanelSelect(coordinator)", source)
+        self.assertIn('"startup_panel" in (self.coordinator.data or {})', source)
+        self.assertIn("async_update_settings(startup_panel=option)", source)
+
+    def test_panel_order_is_exposed_through_validated_service_and_api(self):
+        api = (INTEGRATION / "api_client.py").read_text(encoding="utf-8")
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        card = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        self.assertIn('f"{API_PANELS}/order"', api)
+        self.assertIn('async def reorder_panels(self, order: list[str])', api)
+        self.assertIn('async def async_reorder_panels(self, order: list[str])', coordinator)
+        self.assertIn('DOMAIN, "reorder_panels", handle_reorder_panels', init)
+        self.assertIn('set(order) != expected', init)
+        self.assertIn('callService("viewpie", "reorder_panels"', card)
+        self.assertIn('async _movePanel(panelId, delta)', card)
+
+    def test_view_selector_exposes_startup_panel_setting(self):
+        card = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        self.assertIn('s.attributes?.icon === "mdi:home-map-marker"', card)
+        self.assertIn('async _setStartupPanel(panelId)', card)
+        self.assertIn('Панель при запуске', card)
+        self.assertIn('Настройка стартовой панели доступна после обновления Viewpie', card)
