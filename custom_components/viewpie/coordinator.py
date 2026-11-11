@@ -133,5 +133,10 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.client.grid()
         await self.client.activate_panel(panel_id)
         await self.async_refresh()
+
+    async def async_reorder_panels(self, order: list[str]) -> None:
+        """Persist a complete panel order and refresh entity options."""
+        await self.client.reorder_panels(order)
+        await self.async_refresh()
     async def async_update_settings(self, **kwargs: Any) -> None: await self.client.update_settings(**kwargs); await self.async_request_refresh()
     async def async_reload_config(self) -> None: await self.client.reload_config(); await self.async_request_refresh()
