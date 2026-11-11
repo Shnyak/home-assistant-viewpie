@@ -74,6 +74,10 @@ class ViewpieSystemManager extends HTMLElement {
   _render() {
     if (!this._config) return;
     const root = this.shadowRoot || this.attachShadow({mode:"open"});
+    const previousLog = root.querySelector(".terminal pre");
+    const previousScrollTop = previousLog?.scrollTop || 0;
+    const wasAtBottom = !previousLog ||
+      previousLog.scrollHeight - previousLog.scrollTop - previousLog.clientHeight < 24;
     root.replaceChildren();
     const style = document.createElement("style");
     style.textContent = `
@@ -267,6 +271,7 @@ class ViewpieSystemManager extends HTMLElement {
     const terminalLog = document.createElement("pre");
     terminalLog.textContent = journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
     terminalLog.className = journal.log ? "" : "terminal-empty";
+    terminalLog.scrollTop = wasAtBottom ? terminalLog.scrollHeight : previousScrollTop;
     terminal.append(terminalHead, terminalLog);
 
     card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint, terminal);
