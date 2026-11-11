@@ -34,6 +34,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             ViewpieSpacingNumber(coordinator),
+            ViewpieHardwareDecoderLimitNumber(coordinator),
             ViewpieFullscreenTimeoutNumber(coordinator),
         ]
     )
@@ -117,3 +118,16 @@ class ViewpieFullscreenTimeoutNumber(ViewpieNumberBase):
     _max_value = 3600
     _step_value = 10
     _default_value = 600
+
+
+class ViewpieHardwareDecoderLimitNumber(ViewpieNumberBase):
+    """Maximum number of simultaneous hardware-decoded camera streams."""
+
+    _attr_name = "Лимит аппаратных декодеров"
+    _attr_icon = "mdi:chip"
+    _attr_native_unit_of_measurement = "камер"
+    _setting_key = "hardware_decoder_limit"
+    _min_value = 0
+    _max_value = 16
+    _step_value = 1
+    _default_value = 6

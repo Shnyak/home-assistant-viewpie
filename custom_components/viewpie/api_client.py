@@ -191,18 +191,18 @@ class ViewpieApiClient:
         return []
 
     async def create_camera(
-        self, name: str, url: str, fullscreen_url: Optional[str] = None
+        self, name: str, url: str, fullscreen_url: Optional[str] = None, decoder: str = "auto"
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"name": name, "url": url}
+        payload: dict[str, Any] = {"name": name, "url": url, "decoder": decoder}
         if fullscreen_url is not None:
             payload["fullscreen_url"] = fullscreen_url
         result = await self._request("POST", API_CAMERAS, payload)
         return result if isinstance(result, dict) else {}
 
     async def update_camera(
-        self, name: str, url: str, fullscreen_url: Optional[str] = None
+        self, name: str, url: str, fullscreen_url: Optional[str] = None, decoder: str = "auto"
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"name": name, "url": url}
+        payload: dict[str, Any] = {"name": name, "url": url, "decoder": decoder}
         if fullscreen_url is not None:
             # An explicit empty string clears the optional fullscreen URL.
             payload["fullscreen_url"] = fullscreen_url

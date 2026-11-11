@@ -169,7 +169,11 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertNotIn("_selectCamera", source)
         init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("await client.delete_camera(name)", init)
-        self.assertIn("await client.reload_config()", init)
+        camera_handler = init[init.index("    async def handle_manage_camera"):init.index("    async def handle_get_camera")]
+        self.assertIn('call.data.get("decoder", "auto")', camera_handler)
+        self.assertNotIn("await client.reload_config()", camera_handler)
+        camera_service = init[init.index('DOMAIN, "manage_camera"'):init.index('DOMAIN, "test_camera"')]
+        self.assertIn('vol.Optional("decoder", default="auto")', camera_service)
         self.assertIn("supports_response=SupportsResponse.ONLY", init)
         self.assertIn("supports_response=SupportsResponse.OPTIONAL", init)
 

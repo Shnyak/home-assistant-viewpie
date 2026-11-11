@@ -6,6 +6,7 @@ class ViewpieCameraManager extends HTMLElement {
     this._cameraName = "";
     this._cameraUrl = "";
     this._cameraFullscreenUrl = "";
+    this._cameraDecoder = "auto";
     this._cameraOptions = [];
     this._status = "";
     this._error = false;
@@ -64,20 +65,21 @@ class ViewpieCameraManager extends HTMLElement {
     `;
     const card=this._el("ha-card");
     card.append(this._el("h2",{},this._config.title || "Управление камерами Viewpie"));
-    card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменения применяются командой Reload config."));
+    card.append(this._el("p",{class:"muted"},"Добавление, редактирование, проверка RTSP и удаление камер Viewpie. Изменение параметров камеры применяется сразу. Новую камеру добавьте в раскладку нужной панели."));
+    card.append(this._el("p",{class:"muted"},"Автоматически заполняет свободные аппаратные слоты по имени камеры после явно выбранных Hardware-камер; Software всегда декодируется процессором. Hardware — приоритет аппаратного декодирования с автоматическим переходом на программное при ошибке. Отдельный основной поток в полноэкранном режиме также использует программное декодирование, чтобы не занимать слот сетки."));
     const fields=this._el("div",{class:"fields"});
     const select=this._el("select");
     select.append(this._el("option",{value:""},"Новая камера — добавить"));
     this._cameraOptions.forEach(name=>select.append(this._el("option",{value:name},name)));
     select.value=this._cameraName;
     select.addEventListener("change",async()=>{
-      this._cameraName=select.value; this._cameraUrl=""; this._cameraFullscreenUrl="";
+      this._cameraName=select.value; this._cameraUrl=""; this._cameraFullscreenUrl=""; this._cameraDecoder="auto";
       if(this._cameraName){
         try{
           const data={name:this._cameraName}; if(this._entryId)data.entry_id=this._entryId;
           const result=await this._hass.callWS({type:"call_service",domain:"viewpie",service:"get_camera",service_data:data,return_response:true});
           const camera=result?.response||result;
-          this._cameraUrl=camera?.url||""; this._cameraFullscreenUrl=camera?.fullscreen_url||"";
+          this._cameraUrl=camera?.url||""; this._cameraFullscreenUrl=camera?.fullscreen_url||""; this._cameraDecoder=camera?.decoder||"auto";
           this._status="Параметры камеры загружены."; this._error=false;
         }catch(err){this._status="Не удалось загрузить параметры: "+(err?.message||err);this._error=true;}
       } else this._status="";
@@ -97,6 +99,11 @@ class ViewpieCameraManager extends HTMLElement {
     full.value=this._cameraFullscreenUrl;
     full.addEventListener("input",()=>this._cameraFullscreenUrl=full.value);
     fields.append(this._field("RTSP URL для fullscreen",full));
+    const decoder=this._el("select");
+    [["auto","Автоматически (до лимита)"] ,["hardware","Аппаратное (при сбое — программное)"],["software","Программное декодирование"]].forEach(([value,label])=>decoder.append(this._el("option",{value},label)));
+    decoder.value=this._cameraDecoder;
+    decoder.addEventListener("change",()=>this._cameraDecoder=decoder.value);
+    fields.append(this._field("Декодирование в сетке",decoder));
     card.append(fields);
 
     const actions=this._el("div",{class:"actions"});
@@ -134,15 +141,15 @@ class ViewpieCameraManager extends HTMLElement {
         this._error=!value.ok;
       }else{
         data.operation=operation;
-        if(operation!=="delete"){data.url=this._cameraUrl.trim();data.fullscreen_url=this._cameraFullscreenUrl||"";}
+        if(operation!=="delete"){data.url=this._cameraUrl.trim();data.fullscreen_url=this._cameraFullscreenUrl||"";data.decoder=this._cameraDecoder||"auto";}
         await this._hass.callService("viewpie","manage_camera",data);
         if(operation==="delete"){
           this._cameraOptions=this._cameraOptions.filter(item=>item!==name);
-          this._cameraName="";this._cameraUrl="";this._cameraFullscreenUrl="";
-          this._status=`Камера «${name}» удалена. Использовавшиеся ячейки панелей очищены; Reload config выполнен.`;
+          this._cameraName="";this._cameraUrl="";this._cameraFullscreenUrl="";this._cameraDecoder="auto";
+          this._status=`Камера «${name}» удалена. Использовавшиеся ячейки панелей очищены.`;
         }else{
           this._cameraOptions=[...new Set([...this._cameraOptions,name])];
-          this._status=operation==="create"?`Камера «${name}» добавлена. Reload config выполнен.`:`Камера «${name}» обновлена. Reload config выполнен.`;
+          this._status=operation==="create"?`Камера «${name}» добавлена. Добавьте её в раскладку панели.`:`Камера «${name}» обновлена.`;
         }
       }
     }catch(err){this._status=`Операция не выполнена: ${err?.message||err}`;this._error=true;}
