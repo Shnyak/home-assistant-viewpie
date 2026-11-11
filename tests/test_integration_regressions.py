@@ -227,5 +227,21 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("await self.coordinator.async_resume()", screen)
         self.assertIn("await self.coordinator.async_pause()", screen)
 
+    def test_system_manager_matches_device_prefixed_entities_and_opens_history(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("state.attributes?.viewpie_entry_id", source)
+        self.assertIn("name.endsWith(` ${alias}`)", source)
+        self.assertIn('item.entity_id.split(".").pop()', source)
+        self.assertIn('new CustomEvent("hass-more-info"', source)
+        self.assertIn("detail: {entityId: rowData.state.entity_id}", source)
+        self.assertNotIn("state.attributes?.config_entry_id", source)
+
+    def test_decoder_count_sensors_are_recorded_for_history(self):
+        source = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
+        decoder_counts = source[source.index("class ViewpieDecoderCountSensor"):source.index("class ViewpieHardwareDecoderCountSensor")]
+        self.assertIn("SensorStateClass.MEASUREMENT", decoder_counts)
+        entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
+        self.assertIn('"viewpie_entry_id": coordinator.entry.entry_id', entity)
+
 if __name__ == "__main__":
     unittest.main()
