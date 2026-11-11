@@ -165,6 +165,25 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return result
         except Exception as err:
             _LOGGER.exception("Could not start Viewpie update")
+            data = dict(self.data or {})
+            previous = data.get("update_status", {})
+            previous = previous if isinstance(previous, dict) else {}
+            timestamp = datetime.now(timezone.utc).isoformat()
+            line = f"[ha-request] {timestamp} ERROR: {err}"
+            old_log = str(previous.get("log") or "")
+            data["update_status"] = {
+                **previous,
+                "status": "failed",
+                "phase": "ha_request",
+                "message": "Home Assistant could not start the update request",
+                "error": str(err),
+                "updated_at": timestamp,
+                "finished_at": timestamp,
+                "exit_code": None,
+                "log": (old_log + "\\n" + line).strip(),
+            }
+            self.async_set_updated_data(data)
+            self.async_stop_update_journal_polling()
             raise
 
     async def async_pause(self) -> None: await self.client.pause(); await self.async_request_refresh()
