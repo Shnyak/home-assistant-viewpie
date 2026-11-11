@@ -118,10 +118,9 @@ class ViewpieViewSelector extends HTMLElement {
     this._status = "Сохраняю порядок панелей…";
     this._render();
     try {
-      await this._hass.callService("viewpie", "reorder_panels", {
-        entry_id: this._entryId,
-        order
-      });
+      const payload = {order};
+      if (this._entryId) payload.entry_id = this._entryId;
+      await this._hass.callService("viewpie", "reorder_panels", payload);
       this._status = "Порядок панелей сохранён.";
     } catch (err) {
       this._status = "Не удалось изменить порядок: " + (err?.message || err);
