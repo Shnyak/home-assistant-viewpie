@@ -16,7 +16,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature, UnitOfTime
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import slugify
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -133,14 +133,11 @@ class ViewpieActiveStreamsSensor(ViewpieSensorBase):
 
 
 class ViewpieUptimeSensor(ViewpieSensorBase):
-    """Device uptime in seconds."""
+    """Device uptime in a readable days / hours / minutes format."""
 
     _attr_name = "Uptime"
     _attr_icon = "mdi:timer"
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
-    _key = "uptime_seconds"
+    _key = "uptime"
     _default = 0
 
 
