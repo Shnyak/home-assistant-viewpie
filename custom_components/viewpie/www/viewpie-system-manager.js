@@ -78,7 +78,7 @@ class ViewpieSystemManager extends HTMLElement {
       .section{font-size:.9rem;font-weight:600;color:var(--secondary-text-color);margin:14px 0 6px}
       .rows{display:flex;flex-direction:column}
       .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:center;
-        width:100%;padding:0;border:0;border-bottom:1px solid var(--divider-color);
+        width:100%;margin:0;padding:0;border:0;border-radius:0;border-bottom:1px solid var(--divider-color);
         background:transparent;color:inherit;font:inherit;text-align:left}
       .row:not(:disabled){cursor:pointer}
       .row:not(:disabled):hover{background:var(--secondary-background-color)}
