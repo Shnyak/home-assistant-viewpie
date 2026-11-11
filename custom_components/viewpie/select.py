@@ -36,6 +36,7 @@ async def async_setup_entry(
         [
             ViewpiePanelSelect(coordinator),
             ViewpieStartupPanelSelect(coordinator),
+            ViewpieScreenBootModeSelect(coordinator),
             ViewpieFullscreenSelect(coordinator),
         ]
     )
@@ -216,6 +217,44 @@ class ViewpieStartupPanelSelect(ViewpieSelectBase):
         except ViewpieConnectionError as err:
             raise HomeAssistantError(
                 f"Failed to set startup panel '{option}': {err}"
+            ) from err
+        self._record_selection(option)
+
+
+
+class ViewpieScreenBootModeSelect(ViewpieSelectBase):
+    """Choose the screen state policy applied after a reboot."""
+
+    _attr_name = "Поведение экрана после перезагрузки"
+    _attr_icon = "mdi:monitor-arrow-down-variant"
+    _MODES = {
+        "always_on": "Всегда включён",
+        "always_off": "Всегда выключен",
+        "restore": "Восстановить последнее состояние",
+    }
+    _REVERSE = {label: value for value, label in _MODES.items()}
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._base_unique_id}_screen_boot_mode"
+
+    def _build_options(self) -> list[str]:
+        return list(self._REVERSE)
+
+    @property
+    def current_option(self) -> str:
+        mode = str(self.status.get("screen_boot_mode") or "restore")
+        return self._MODES.get(mode, self._MODES["restore"])
+
+    async def async_select_option(self, option: str) -> None:
+        mode = self._REVERSE.get(option)
+        if mode is None:
+            raise HomeAssistantError(f"Unknown screen boot mode: {option}")
+        try:
+            await self.coordinator.async_update_settings(screen_boot_mode=mode)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to set screen boot mode: {err}"
             ) from err
         self._record_selection(option)
 
