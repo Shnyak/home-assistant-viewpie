@@ -286,11 +286,8 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("ViewpieCheckUpdatesButton(coordinator)", button)
         self.assertIn("ViewpieInstallUpdateButton(coordinator)", button)
 
-if __name__ == "__main__":
-    unittest.main()
 
-
-    def test_startup_panel_select_is_available_only_with_native_setting(self):
+    def test_startup_panel_select_is_available_only_with_native_setting(self):    def test_startup_panel_select_is_available_only_with_native_setting(self):
         source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
         self.assertIn("ViewpieStartupPanelSelect(coordinator)", source)
         self.assertIn('"startup_panel" in (self.coordinator.data or {})', source)
@@ -315,3 +312,7 @@ if __name__ == "__main__":
         self.assertIn('async _setStartupPanel(panelId)', card)
         self.assertIn('Панель при запуске', card)
         self.assertIn('Настройка стартовой панели доступна после обновления Viewpie', card)
+
+
+if __name__ == "__main__":
+    unittest.main()
