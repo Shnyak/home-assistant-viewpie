@@ -287,7 +287,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("ViewpieInstallUpdateButton(coordinator)", button)
 
 
-    def test_startup_panel_select_is_available_only_with_native_setting(self):    def test_startup_panel_select_is_available_only_with_native_setting(self):
+    def test_startup_panel_select_is_available_only_with_native_setting(self):
         source = (INTEGRATION / "select.py").read_text(encoding="utf-8")
         self.assertIn("ViewpieStartupPanelSelect(coordinator)", source)
         self.assertIn('"startup_panel" in (self.coordinator.data or {})', source)
