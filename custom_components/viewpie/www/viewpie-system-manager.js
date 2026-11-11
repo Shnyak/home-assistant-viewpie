@@ -108,6 +108,8 @@ class ViewpieSystemManager extends HTMLElement {
       .terminal pre{margin:0;padding:12px;max-height:300px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
         font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#d8e2dc}
       .terminal .copy{width:auto;margin:0;padding:6px 10px;background:#39464e;color:#fff;font-size:.8rem}
+      .progress-track{height:4px;background:#39464e}
+      .progress-fill{height:4px;background:#69b783;transition:width .25s ease}
       .terminal-empty{color:#aeb9b3}
     `;
     const card = document.createElement("ha-card");
@@ -229,8 +231,9 @@ class ViewpieSystemManager extends HTMLElement {
     terminalHead.className = "terminal-head";
     const terminalState = document.createElement("span");
     terminalState.className = "terminal-state";
-    const progress = journal.progress_percent !== null && journal.progress_percent !== undefined && Number.isFinite(Number(journal.progress_percent))
-      ? ` — ${Number(journal.progress_percent)}%` : "";
+    const progressValue = journal.progress_percent !== null && journal.progress_percent !== undefined && Number.isFinite(Number(journal.progress_percent))
+      ? Math.max(0, Math.min(100, Number(journal.progress_percent))) : null;
+    const progress = progressValue !== null ? ` — ${progressValue}%` : "";
     terminalState.textContent = journal.status === "running"
       ? `● Выполняется: ${journal.phase || "подготовка"}${progress}`
       : journal.status === "failed"
@@ -281,10 +284,21 @@ class ViewpieSystemManager extends HTMLElement {
       }
     });
     terminalHead.append(terminalState, copyLog);
+    if (progressValue !== null) {
+      const progressTrack = document.createElement("div");
+      progressTrack.className = "progress-track";
+      const progressFill = document.createElement("div");
+      progressFill.className = "progress-fill";
+      progressFill.style.width = `${progressValue}%`;
+      progressTrack.append(progressFill);
+      terminal.append(terminalHead, progressTrack);
+    } else {
+      terminal.append(terminalHead);
+    }
     const terminalLog = document.createElement("pre");
     terminalLog.textContent = journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
     terminalLog.className = journal.log ? "" : "terminal-empty";
-    terminal.append(terminalHead, terminalLog);
+    terminal.append(terminalLog);
 
     card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint, terminal);
     root.append(style, card);
