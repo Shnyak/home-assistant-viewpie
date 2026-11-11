@@ -235,12 +235,14 @@ class ViewpieDecoderStatusSensor(ViewpieEntity, SensorEntity):
             "software_count": counts["software"],
             "unknown_count": counts["unknown"],
             "cameras": cameras,
+            "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
 
 
 class ViewpieDecoderCountSensor(ViewpieEntity, SensorEntity):
     """Base class for live hardware/software decoder counts."""
 
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _mode: str
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:
