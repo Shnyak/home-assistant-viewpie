@@ -124,6 +124,11 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.client.fullscreen(camera, duration)
         await self.async_refresh()
 
+    async def async_reorder_panels(self, order: list[str]) -> None:
+        """Persist the exact panel order on the Viewpie device."""
+        await self.client.reorder_panels(order)
+        await self.async_request_refresh()
+
     async def async_activate_panel(self, panel_id: str) -> None:
         """Wake the screen if needed, then activate the requested panel."""
         await self._async_ensure_screen_on()
