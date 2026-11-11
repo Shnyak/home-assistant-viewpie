@@ -232,7 +232,11 @@ class ViewpieScreenBootModeSelect(ViewpieSelectBase):
         "always_off": "Всегда выключен",
         "restore": "Восстановить последнее состояние",
     }
-    _REVERSE = {label: value for value, label in _MODES.items()}
+    _REVERSE = {
+        "Всегда включён": "always_on",
+        "Всегда выключен": "always_off",
+        "Восстановить последнее состояние": "restore",
+    }
 
     def __init__(self, coordinator: ViewpieCoordinator) -> None:
         super().__init__(coordinator)
