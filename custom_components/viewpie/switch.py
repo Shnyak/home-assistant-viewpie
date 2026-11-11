@@ -35,6 +35,7 @@ async def async_setup_entry(
         [
             ViewpiePauseSwitch(coordinator),
             ViewpiePauseOffScreenSwitch(coordinator),
+            ViewpieDebugOverlaySwitch(coordinator),
         ]
     )
 
@@ -68,6 +69,48 @@ class ViewpiePauseSwitch(ViewpieEntity, SwitchEntity):
             await self.coordinator.async_pause()
         except ViewpieConnectionError as err:
             raise HomeAssistantError(f"Failed to pause viewpie: {err}") from err
+class ViewpieDebugOverlaySwitch(ViewpieEntity, SwitchEntity):
+    """Enable or disable the readable diagnostics overlay on the camera wall."""
+
+    _attr_name = "Диагностическая информация"
+    _attr_icon = "mdi:monitor-eye"
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        """Initialize the debug overlay switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_debug_overlay"
+
+    @property
+    def available(self) -> bool:
+        """Expose the switch only when the backend reports this setting."""
+        return self.coordinator.last_update_success and "debug_overlay" in (
+            self.coordinator.data or {}
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return whether the diagnostics overlay is enabled."""
+        return bool(self.status.get("debug_overlay", False))
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable diagnostics on the native renderer."""
+        try:
+            await self.coordinator.async_update_settings(debug_overlay=True)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to enable Viewpie diagnostics: {err}"
+            ) from err
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable diagnostics on the native renderer."""
+        try:
+            await self.coordinator.async_update_settings(debug_overlay=False)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to disable Viewpie diagnostics: {err}"
+            ) from err
+
+
 class ViewpiePauseOffScreenSwitch(ViewpieEntity, SwitchEntity):
     """Switch for auto-pause when the screen is off (settings-backed)."""
 

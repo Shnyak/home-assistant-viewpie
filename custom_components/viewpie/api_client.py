@@ -197,6 +197,11 @@ class ViewpieApiClient:
         result = await self._request("POST", path)
         return result if isinstance(result, dict) else {}
 
+    async def reorder_panels(self, order: list[str]) -> dict[str, Any]:
+        """Persist the exact order of all configured panels."""
+        result = await self._request("PUT", f"{API_PANELS}/order", {"order": list(order)})
+        return result if isinstance(result, dict) else {}
+
     async def get_cameras(self) -> list[Any]:
         response = await self._request("GET", API_CAMERAS)
         if isinstance(response, list):

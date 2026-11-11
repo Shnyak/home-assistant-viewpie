@@ -7,6 +7,7 @@ class ViewpieViewSelector extends HTMLElement {
     this._panels = [];
     this._cameras = [];
     this._panelEntity = null;
+    this._startupPanelEntity = null;
     this._fullscreenEntity = null;
     this._screenEntity = null;
     this._busy = false;
@@ -22,6 +23,8 @@ class ViewpieViewSelector extends HTMLElement {
       s.attributes?.icon === "mdi:fullscreen" && Array.isArray(s.attributes?.options));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.attributes?.icon === "mdi:view-dashboard" && Array.isArray(s.attributes?.options));
+    const startupPanel = states.find(s => s.entity_id.startsWith("select.") &&
+      s.attributes?.icon === "mdi:home-map-marker" && Array.isArray(s.attributes?.options));
     // With has_entity_name enabled, HA composes friendly_name from the
     // device name and entity name (for example "Viewpie (host) Экран").
     // Match the dedicated screen switch by its stable icon/name instead of
@@ -40,13 +43,18 @@ class ViewpieViewSelector extends HTMLElement {
     const signature = JSON.stringify([
       fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
       panel?.entity_id, panel?.attributes?.options, panel?.state,
-      panel?.attributes?.panel_details, screen?.entity_id, screen?.state
+      panel?.attributes?.panel_details, startupPanel?.entity_id,
+      startupPanel?.attributes?.options, startupPanel?.state, screen?.entity_id, screen?.state
     ]);
     if (signature !== this._signature) {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
       this._panelEntity = panel || null;
+      this._startupPanelEntity = startupPanel || null;
       this._screenEntity = screen || null;
+      this._entryId = this._config.entry_id ||
+        panel?.attributes?.viewpie_entry_id ||
+        startupPanel?.attributes?.viewpie_entry_id || "";
       this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
       this._panels = panel ? panel.attributes.options : [];
@@ -125,6 +133,49 @@ class ViewpieViewSelector extends HTMLElement {
     }
   }
 
+  async _setStartupPanel(panelId) {
+    if (this._busy || !this._hass || !this._startupPanelEntity) return;
+    this._busy = true;
+    this._status = "Сохраняю стартовую панель…";
+    this._render();
+    try {
+      await this._callSelect(this._startupPanelEntity, panelId);
+      this._status = "Стартовая панель: " + this._panelLabel(panelId);
+    } catch (err) {
+      this._status = "Не удалось сохранить стартовую панель: " + (err?.message || err);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+  }
+
+  async _movePanel(panelId, delta) {
+    if (this._busy || !this._hass) return;
+    const order = [...this._panels];
+    const from = order.indexOf(panelId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= order.length) return;
+    [order[from], order[to]] = [order[to], order[from]];
+    this._busy = true;
+    this._status = "Сохраняю порядок панелей…";
+    this._render();
+    try {
+      const payload = {order};
+      if (this._entryId) payload.entry_id = this._entryId;
+      await this._hass.callService("viewpie", "reorder_panels", payload);
+      const ids = [this._panelEntity?.entity_id, this._startupPanelEntity?.entity_id].filter(Boolean);
+      if (ids.length) {
+        await this._hass.callService("homeassistant", "update_entity", {entity_id: ids});
+      }
+      this._status = "Порядок панелей сохранён.";
+    } catch (err) {
+      this._status = "Не удалось изменить порядок панелей: " + (err?.message || err);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+  }
+
   async _chooseCamera(camera) {
     if (this._busy || !this._hass) return;
     this._busy = true;
@@ -175,6 +226,10 @@ class ViewpieViewSelector extends HTMLElement {
         padding:8px 10px;border:1px solid var(--divider-color);border-radius:9px}
       .choice-label{min-width:0;overflow-wrap:anywhere}
       .choice-label.active{font-weight:600;color:var(--success-color,var(--primary-color))}
+      .panel-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+      .panel-actions button{padding:7px 10px}
+      .startup-select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--divider-color);
+        border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
       button{flex:0 0 auto;font:inherit;border:1px solid var(--divider-color);border-radius:8px;padding:8px 13px;
         background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}
       button.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}
@@ -204,15 +259,41 @@ class ViewpieViewSelector extends HTMLElement {
       const active = id === activePanel;
       const row = this._el("div", {class: "choice-row"});
       row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, this._panelLabel(id)));
+      const actions = this._el("div", {class: "panel-actions"});
       const button = this._el("button", {class: active ? "active" : ""}, active ? "Активна" : "Переключить");
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy || active;
       button.addEventListener("click", () => this._choosePanel(id));
-      row.append(button);
+      const up = this._el("button", {"aria-label": "Переместить выше", title: "Переместить выше"}, "↑");
+      up.disabled = this._busy || this._panels.indexOf(id) === 0;
+      up.addEventListener("click", () => this._movePanel(id, -1));
+      const down = this._el("button", {"aria-label": "Переместить ниже", title: "Переместить ниже"}, "↓");
+      down.disabled = this._busy || this._panels.indexOf(id) === this._panels.length - 1;
+      down.addEventListener("click", () => this._movePanel(id, 1));
+      actions.append(button, up, down);
+      row.append(actions);
       panels.append(row);
     });
     if (!this._panels.length) panels.append(this._el("span", {class: "muted"}, "Панели не найдены."));
     card.append(panels);
+
+    card.append(this._el("h3", {}, "Панель при запуске"));
+    if (this._startupPanelEntity && this._startupPanelEntity.state !== "unavailable") {
+      const startupSelect = this._el("select", {class: "startup-select"});
+      const startupOptions = this._startupPanelEntity.attributes?.options || this._panels;
+      startupOptions.forEach(id => {
+        const option = this._el("option", {value: id}, this._panelLabel(id));
+        option.selected = id === this._startupPanelEntity.state;
+        startupSelect.append(option);
+      });
+      startupSelect.value = this._startupPanelEntity.state || "";
+      startupSelect.disabled = this._busy || !startupOptions.length;
+      startupSelect.addEventListener("change", () => this._setStartupPanel(startupSelect.value));
+      card.append(startupSelect);
+    } else {
+      card.append(this._el("div", {class: "muted"},
+        "Настройка стартовой панели доступна после обновления Viewpie на Raspberry Pi."));
+    }
 
     card.append(this._el("h3", {}, "Камеры"));
     const cameras = this._el("div", {class: "choice-list"});
