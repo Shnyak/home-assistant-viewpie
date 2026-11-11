@@ -26,6 +26,12 @@ def mock_client_fixture():
         inst.async_init = AsyncMock()
         inst.async_close = AsyncMock()
         inst.get_status = AsyncMock(return_value=dict(_STATUS))
+        inst.get_settings = AsyncMock(return_value={
+            "hardware_decoder_limit": 6,
+            "screen_boot_mode": "restore",
+            "debug_overlay": False,
+            "pause_off_screen": True,
+        })
         inst.get_panels = AsyncMock(
             return_value=[
                 {"id": "inside"},
