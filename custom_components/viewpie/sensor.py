@@ -307,4 +307,5 @@ class ViewpieCameraDecoderSensor(ViewpieEntity, SensorEntity):
             "mode": status.get("mode"),
             "state": status.get("state", "unknown"),
             "fallback_reason": status.get("fallback_reason"),
+            "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
