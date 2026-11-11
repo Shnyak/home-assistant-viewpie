@@ -37,6 +37,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=65535)
         ),
         vol.Optional(CONF_API_KEY, default=""): str,
+        vol.Optional(CONF_RESTART_TOKEN, default=""): str,
     }
 )
 
@@ -99,6 +100,7 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_HOST: host,
                         CONF_PORT: port,
                         CONF_API_KEY: api_key or "",
+                        CONF_RESTART_TOKEN: (user_input.get(CONF_RESTART_TOKEN) or "").strip(),
                     },
                 )
 

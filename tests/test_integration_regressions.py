@@ -57,7 +57,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         import json
 
         manifest = json.loads((INTEGRATION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.2.8")
+        self.assertEqual(manifest["version"], "1.2.9")
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('manufacturer": "Viewpie"', entity)
         self.assertNotIn("AI-generated integration", entity)
@@ -242,6 +242,26 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("SensorStateClass.MEASUREMENT", decoder_counts)
         entity = (INTEGRATION / "entity.py").read_text(encoding="utf-8")
         self.assertIn('"viewpie_entry_id": coordinator.entry.entry_id', entity)
+
+    def test_system_manager_card_contains_update_controls(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("Обновление Viewpie", source)
+        self.assertIn("Проверить обновления", source)
+        self.assertIn("Установить обновление", source)
+        self.assertIn("window.confirm(", source)
+
+    def test_initial_setup_accepts_optional_restart_update_token(self):
+        source = (INTEGRATION / "config_flow.py").read_text(encoding="utf-8")
+        self.assertIn('vol.Optional(CONF_RESTART_TOKEN, default=""): str', source)
+        self.assertIn('CONF_RESTART_TOKEN: (user_input.get(CONF_RESTART_TOKEN) or "").strip()', source)
+
+    def test_update_client_and_buttons_are_wired(self):
+        api = (INTEGRATION / "api_client.py").read_text(encoding="utf-8")
+        button = (INTEGRATION / "button.py").read_text(encoding="utf-8")
+        self.assertIn("async def check_update", api)
+        self.assertIn("async def install_update", api)
+        self.assertIn("ViewpieCheckUpdatesButton(coordinator)", button)
+        self.assertIn("ViewpieInstallUpdateButton(coordinator)", button)
 
 if __name__ == "__main__":
     unittest.main()

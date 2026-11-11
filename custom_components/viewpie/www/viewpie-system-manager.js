@@ -25,6 +25,8 @@ class ViewpieSystemManager extends HTMLElement {
       ["Decoder status", ["decoder status"]],
       ["Hardware decoders", ["hardware decoders"]],
       ["Load average (1m)", ["load average 1m"]],
+      ["Latest version", ["latest version"]],
+      ["Update available", ["update available"]],
       ["Paused", ["paused"]],
       ["Screen off", ["screen off"]],
       ["Software build date", ["software build date"]],
@@ -49,6 +51,8 @@ class ViewpieSystemManager extends HTMLElement {
     });
     const buttons = states.filter(s => s.entity_id.startsWith("button.") && belongsToEntry(s));
     const restartName = normalize("Перезагрузить Raspberry Pi");
+    this._checkUpdateButton = buttons.find(s => normalize(s.attributes?.friendly_name).endsWith(normalize("Проверить обновления Viewpie"))) || null;
+    this._installUpdateButton = buttons.find(s => normalize(s.attributes?.friendly_name).endsWith(normalize("Установить обновление Viewpie"))) || null;
     this._button = buttons.find(s => {
       const name = normalize(s.attributes?.friendly_name);
       return name === restartName || name.endsWith(` ${restartName}`);
@@ -146,11 +150,56 @@ class ViewpieSystemManager extends HTMLElement {
     hint.className = "hint";
     hint.textContent = this._button ? "Команда выполняется на Raspberry Pi." :
       "Задайте токен перезагрузки в параметрах интеграции и VIEWPIE_RESTART_TOKEN на Raspberry Pi.";
-    card.append(title, section, rows, button, hint);
+    const updateSection = document.createElement("div");
+    updateSection.className = "section";
+    updateSection.textContent = "Обновление Viewpie";
+    const updateActions = document.createElement("div");
+    updateActions.style.display = "grid";
+    updateActions.style.gap = "8px";
+
+    const checkButton = document.createElement("button");
+    checkButton.textContent = "Проверить обновления";
+    checkButton.disabled = !this._checkUpdateButton || this._checkUpdateButton.state === "unavailable";
+    checkButton.addEventListener("click", async () => {
+      if (!this._hass || !this._checkUpdateButton) return;
+      checkButton.disabled = true;
+      try {
+        await this._hass.callService("button", "press", {entity_id:this._checkUpdateButton.entity_id});
+      } catch (err) {
+        window.alert("Не удалось проверить обновления: " + (err?.message || err));
+      } finally {
+        checkButton.disabled = false;
+      }
+    });
+
+    const installButton = document.createElement("button");
+    installButton.textContent = "Установить обновление";
+    installButton.disabled = !this._installUpdateButton || this._installUpdateButton.state === "unavailable";
+    installButton.addEventListener("click", async () => {
+      if (!this._hass || !this._installUpdateButton) return;
+      if (!window.confirm("Установить последнюю проверенную версию Viewpie? Видеостена временно перезапустится.")) return;
+      installButton.disabled = true;
+      try {
+        await this._hass.callService("button", "press", {entity_id:this._installUpdateButton.entity_id});
+        window.alert("Команда обновления принята. После установки проверьте версию Viewpie.");
+      } catch (err) {
+        window.alert("Не удалось запустить обновление: " + (err?.message || err));
+      } finally {
+        installButton.disabled = false;
+      }
+    });
+    updateActions.append(checkButton, installButton);
+    const updateHint = document.createElement("div");
+    updateHint.className = "hint";
+    updateHint.textContent = this._installUpdateButton?.state === "unavailable"
+      ? "Сначала проверьте обновления. Установка доступна только при наличии новой версии и настроенного токена."
+      : "Пакет скачивается с GitHub, архитектура проверяется, SHA-256 сверяется перед установкой.";
+
+    card.append(title, section, rows, button, hint, updateSection, updateActions, updateHint);
     root.append(style, card);
   }
 
-  getCardSize() { return 7; }
+  getCardSize() { return 10; }
   static getStubConfig() { return {title:"Управление системой"}; }
 }
 if (!customElements.get("viewpie-system-manager")) {

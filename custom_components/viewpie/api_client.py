@@ -27,6 +27,8 @@ from .const import (
     API_RESUME,
     API_SETTINGS,
     API_STATUS,
+    API_UPDATE_CHECK,
+    API_UPDATE_INSTALL,
     REQUEST_TIMEOUT_SECONDS,
 )
 
@@ -120,6 +122,19 @@ class ViewpieApiClient:
 
     async def get_status(self) -> dict[str, Any]:
         result = await self._request("GET", API_STATUS)
+        return result if isinstance(result, dict) else {}
+
+    async def check_update(self) -> dict[str, Any]:
+        """Fetch latest architecture-matched Viewpie release metadata."""
+        result = await self._request("GET", API_UPDATE_CHECK)
+        return result if isinstance(result, dict) else {}
+
+    async def install_update(self, token: str) -> dict[str, Any]:
+        """Request installation of the latest checksum-verified release."""
+        result = await self._request(
+            "POST", API_UPDATE_INSTALL,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        )
         return result if isinstance(result, dict) else {}
 
     async def pause(self) -> dict[str, Any]:

@@ -46,6 +46,8 @@ async def async_setup_entry(
             ViewpieActivePanelSensor(coordinator),
             ViewpieSoftwareVersionSensor(coordinator),
             ViewpieSoftwareBuildDateSensor(coordinator),
+            ViewpieLatestVersionSensor(coordinator),
+            ViewpieUpdateAvailableSensor(coordinator),
             ViewpieDecoderStatusSensor(coordinator),
             ViewpieHardwareDecoderCountSensor(coordinator),
             ViewpieSoftwareDecoderCountSensor(coordinator),
@@ -309,3 +311,28 @@ class ViewpieCameraDecoderSensor(ViewpieEntity, SensorEntity):
             "fallback_reason": status.get("fallback_reason"),
             "viewpie_entry_id": self.coordinator.entry.entry_id,
         }
+
+
+class ViewpieLatestVersionSensor(ViewpieSensorBase):
+    """Latest compatible release discovered by an explicit update check."""
+
+    _attr_name = "Latest version"
+    _attr_icon = "mdi:cloud-download"
+    _key = "latest_version"
+    _default = "Не проверено"
+
+
+class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
+    """Whether a newer compatible release is available."""
+
+    _attr_name = "Update available"
+    _attr_icon = "mdi:update"
+    _key = "update_available"
+
+    @property
+    def native_value(self) -> str:
+        if not self.coordinator.last_update_success:
+            return "Неизвестно"
+        if "update_available" not in self.status:
+            return "Не проверено"
+        return "Да" if self.status.get("update_available") else "Нет"

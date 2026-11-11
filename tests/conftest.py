@@ -43,6 +43,15 @@ def mock_client_fixture():
         inst.activate_panel = AsyncMock(return_value={})
         inst.update_settings = AsyncMock(return_value={})
         inst.reload_config = AsyncMock(return_value={})
+        inst.check_update = AsyncMock(return_value={
+            "installed_version": "0.2.21-fork",
+            "latest_version": "0.2.22-fork",
+            "update_available": True,
+            "can_install": True,
+            "package_available": True,
+            "checksum_available": True,
+        })
+        inst.install_update = AsyncMock(return_value={"ok": True, "status": "started"})
         yield inst
 
 
