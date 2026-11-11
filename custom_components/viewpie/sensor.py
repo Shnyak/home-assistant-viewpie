@@ -110,13 +110,24 @@ class ViewpieLoadAverageSensor(ViewpieSensorBase):
 
 
 class ViewpieActiveStreamsSensor(ViewpieSensorBase):
-    """Number of active RTSP streams."""
+    """Number of streams currently decoding frames."""
 
     _attr_name = "Active streams"
     _attr_icon = "mdi:video"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _key = "active_streams"
     _default = 0
+
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.last_update_success:
+            return None
+        entries = _decoder_entries(self.coordinator)
+        if entries:
+            # In persistent-pool mode this counts every warmed camera that is
+            # actually decoding, not just cameras visible in the selected panel.
+            return sum(item.get("state") == "active" for item in entries)
+        return self.status.get(self._key, self._default)
 
 
 class ViewpieUptimeSensor(ViewpieSensorBase):
