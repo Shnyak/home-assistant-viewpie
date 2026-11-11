@@ -252,7 +252,7 @@ class ViewpieSystemManager extends HTMLElement {
         "",
         "----- journal -----",
         journal.log || "Журнал пока пуст.",
-      ].join("\\n");
+      ].join("\n");
       try {
         await navigator.clipboard.writeText(report);
         copyLog.textContent = "Скопировано";
