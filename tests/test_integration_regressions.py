@@ -328,6 +328,14 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('Панель при запуске', card)
         self.assertIn('Настройка стартовой панели доступна после обновления Viewpie', card)
 
+    def test_update_console_is_cleared_for_each_new_installation(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("this._terminalClearPending = true", source)
+        self.assertIn("this._terminalClearBaselineStartedAt", source)
+        self.assertIn("Предыдущий журнал очищен", source)
+        self.assertIn("this._terminalClearPending = false", source)
+        self.assertIn('copyLog.disabled = waitingForNewUpdate', source)
+
 
 if __name__ == "__main__":
     unittest.main()

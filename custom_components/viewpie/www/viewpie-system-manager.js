@@ -73,6 +73,12 @@ class ViewpieSystemManager extends HTMLElement {
       const name = normalize(s.attributes?.friendly_name);
       return name === restartName || name.endsWith(` ${restartName}`);
     }) || null;
+    this._updateJournal = this._rows?.find(row => row.label === "Update process")?.state?.attributes || {};
+    if (this._terminalClearPending && this._updateJournal.started_at &&
+        this._updateJournal.started_at !== this._terminalClearBaselineStartedAt &&
+        ["running", "success", "failed"].includes(this._updateJournal.status)) {
+      this._terminalClearPending = false;
+    }
     this._render();
   }
 
@@ -360,10 +366,15 @@ class ViewpieSystemManager extends HTMLElement {
       if (!this._hass || !this._installUpdateButton) return;
       if (!window.confirm("Установить последнюю проверенную версию Viewpie? Видеостена временно перезапустится.")) return;
       installButton.disabled = true;
+      this._terminalClearBaselineStartedAt = this._updateJournal?.started_at || "";
+      this._terminalClearPending = true;
+      this._render();
       try {
         await this._hass.callService("button", "press", {entity_id:this._installUpdateButton.entity_id});
-        window.alert("Команда обновления принята. После установки проверьте версию Viewpie.");
+        window.alert("Команда обновления принята. Журнал предыдущей установки очищен; ожидается начало нового процесса.");
       } catch (err) {
+        this._terminalClearPending = false;
+        this._render();
         window.alert("Не удалось запустить обновление: " + (err?.message || err));
       } finally {
         installButton.disabled = false;
@@ -427,6 +438,7 @@ class ViewpieSystemManager extends HTMLElement {
 
     const journalEntity = this._rows?.find(row => row.label === "Update process")?.state;
     const journal = journalEntity?.attributes || {};
+    const waitingForNewUpdate = Boolean(this._terminalClearPending);
     const terminal = document.createElement("section");
     terminal.className = "terminal";
     const terminalHead = document.createElement("div");
@@ -436,17 +448,20 @@ class ViewpieSystemManager extends HTMLElement {
     const progressValue = journal.progress_percent !== null && journal.progress_percent !== undefined && Number.isFinite(Number(journal.progress_percent))
       ? Math.max(0, Math.min(100, Number(journal.progress_percent))) : null;
     const progress = progressValue !== null ? ` — ${progressValue}%` : "";
-    terminalState.textContent = journal.status === "running"
-      ? `● Выполняется: ${journal.phase || "подготовка"}${progress}`
-      : journal.status === "failed"
-        ? `● Ошибка: ${journal.phase || "этап неизвестен"}`
-        : journal.status === "success"
-          ? "● Обновление завершено"
-          : "● Журнал обновления";
+    terminalState.textContent = waitingForNewUpdate
+      ? "● Ожидание нового процесса обновления"
+      : journal.status === "running"
+        ? `● Выполняется: ${journal.phase || "подготовка"}${progress}`
+        : journal.status === "failed"
+          ? `● Ошибка: ${journal.phase || "этап неизвестен"}`
+          : journal.status === "success"
+            ? "● Обновление завершено"
+            : "● Журнал обновления";
     const copyLog = document.createElement("button");
     copyLog.type = "button";
     copyLog.className = "copy";
     copyLog.textContent = "Копировать журнал";
+    copyLog.disabled = waitingForNewUpdate;
     copyLog.addEventListener("click", async () => {
       const report = [
         "Viewpie update diagnostic report",
@@ -493,7 +508,7 @@ class ViewpieSystemManager extends HTMLElement {
       }
     });
     terminalHead.append(terminalState, copyLog);
-    if (progressValue !== null) {
+    if (progressValue !== null && !waitingForNewUpdate) {
       const progressTrack = document.createElement("div");
       progressTrack.className = "progress-track";
       const progressFill = document.createElement("div");
@@ -505,8 +520,10 @@ class ViewpieSystemManager extends HTMLElement {
       terminal.append(terminalHead);
     }
     const terminalLog = document.createElement("pre");
-    terminalLog.textContent = journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
-    terminalLog.className = journal.log ? "" : "terminal-empty";
+    terminalLog.textContent = waitingForNewUpdate
+      ? "Предыдущий журнал очищен. Ожидаем, пока интеграция запустит новую установку…"
+      : journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
+    terminalLog.className = waitingForNewUpdate || !journal.log ? "terminal-empty" : "";
     terminal.append(terminalLog);
 
     card.append(title, section, rows, controlsSection, button, hint, updateSection, updateActions, updateHint, terminal);
