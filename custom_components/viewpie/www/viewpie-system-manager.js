@@ -508,7 +508,7 @@ class ViewpieSystemManager extends HTMLElement {
       }
     });
     terminalHead.append(terminalState, copyLog);
-    if (progressValue !== null) {
+    if (progressValue !== null && !waitingForNewUpdate) {
       const progressTrack = document.createElement("div");
       progressTrack.className = "progress-track";
       const progressFill = document.createElement("div");
