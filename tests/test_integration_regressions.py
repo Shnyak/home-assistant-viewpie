@@ -337,6 +337,16 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('copyLog.disabled = waitingForNewUpdate', source)
 
 
+    def test_update_install_keeps_entities_available_during_api_restart(self):
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        self.assertIn("self._update_install_pending = True", coordinator)
+        self.assertIn("self._update_install_baseline_started_at", coordinator)
+        self.assertIn('"status": "starting"', coordinator)
+        self.assertIn("return dict(self.data)", coordinator)
+        self.assertIn("self._update_journal_poll_attempts = 90", coordinator)
+        self.assertIn("Ignore the previous run while waiting", coordinator)
+        self.assertIn("previous = (self.data or {}).get(\"update_status\", {})", coordinator)
+
 if __name__ == "__main__":
     unittest.main()
 
