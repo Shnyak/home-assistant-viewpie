@@ -102,13 +102,39 @@ class ViewpieSystemManager extends HTMLElement {
     return unit ? `${state.state} ${unit}` : state.state;
   }
 
+  _formatUpdateLog(log) {
+    const timeZone = this._hass?.config?.time_zone || undefined;
+    let formatter;
+    try {
+      formatter = new Intl.DateTimeFormat("ru-RU", {
+        timeZone,
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      });
+    } catch (_) {
+      formatter = new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        hourCycle: "h23",
+      });
+    }
+    return String(log || "").replace(
+      /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b/g,
+      timestamp => {
+        const date = new Date(timestamp);
+        return Number.isNaN(date.getTime()) ? timestamp : formatter.format(date);
+      }
+    );
+  }
+
   _render() {
     if (!this._config) return;
     const root = this.shadowRoot || this.attachShadow({mode:"open"});
-    const previousLog = root.querySelector(".terminal pre");
-    const previousScrollTop = previousLog?.scrollTop || 0;
-    const wasAtBottom = !previousLog ||
-      previousLog.scrollHeight - previousLog.scrollTop - previousLog.clientHeight < 24;
     root.replaceChildren();
     const style = document.createElement("style");
     style.textContent = `
@@ -522,13 +548,17 @@ class ViewpieSystemManager extends HTMLElement {
     const terminalLog = document.createElement("pre");
     terminalLog.textContent = waitingForNewUpdate
       ? "Предыдущий журнал очищен. Ожидаем, пока интеграция запустит новую установку…"
-      : journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.";
+      : this._formatUpdateLog(journal.log || "Обновление ещё не запускалось. После нажатия «Установить обновление» здесь появятся выполняемые команды и их вывод.");
     terminalLog.className = waitingForNewUpdate || !journal.log ? "terminal-empty" : "";
     terminal.append(terminalLog);
 
     card.append(title, section, rows, controlsSection, button, hint, updateSection, updateActions, updateHint, terminal);
     root.append(style, card);
-    terminalLog.scrollTop = wasAtBottom ? terminalLog.scrollHeight : previousScrollTop;
+    // The card is rebuilt on every Home Assistant state update. Scroll after
+    // the new content has been laid out so the newest log line stays visible.
+    requestAnimationFrame(() => {
+      if (terminalLog.isConnected) terminalLog.scrollTop = terminalLog.scrollHeight;
+    });
   }
 
   getCardSize() { return 14; }

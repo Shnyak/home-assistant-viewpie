@@ -363,3 +363,14 @@ if __name__ == "__main__":
         ):
             with self.subTest(required=required):
                 self.assertIn(required, source)
+
+
+    def test_update_console_formats_timestamps_in_home_assistant_timezone_and_scrolls_to_latest_line(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn('this._hass?.config?.time_zone', source)
+        self.assertIn('new Intl.DateTimeFormat("ru-RU"', source)
+        self.assertIn('formatter.format(date)', source)
+        self.assertIn('this._formatUpdateLog(journal.log', source)
+        self.assertIn('requestAnimationFrame(() =>', source)
+        self.assertIn('terminalLog.scrollTop = terminalLog.scrollHeight', source)
+        self.assertNotIn('wasAtBottom', source)
