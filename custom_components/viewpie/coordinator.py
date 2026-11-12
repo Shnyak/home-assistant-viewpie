@@ -209,8 +209,6 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._update_install_pending = False
             _LOGGER.exception("Could not start Viewpie update")
             data = dict(self.data or {})
-            previous = data.get("update_status", {})
-            previous = previous if isinstance(previous, dict) else {}
             timestamp = datetime.now(timezone.utc).isoformat()
             line = f"[ha-request] {timestamp} ERROR: {err}"
             old_log = str(previous.get("log") or "")
