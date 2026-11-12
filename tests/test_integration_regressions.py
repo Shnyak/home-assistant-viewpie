@@ -345,6 +345,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("return dict(self.data)", coordinator)
         self.assertIn("self._update_journal_poll_attempts = 90", coordinator)
         self.assertIn("Ignore the previous run while waiting", coordinator)
+        self.assertIn("previous = (self.data or {}).get(\"update_status\", {})", coordinator)
 
 if __name__ == "__main__":
     unittest.main()
