@@ -20,11 +20,29 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_update_failure: str | None = None
         self._update_journal_unsub = None
         self._update_journal_poll_attempts = 0
+        self._update_install_pending = False
+        self._update_install_baseline_started_at = ""
     async def _async_update_data(self) -> dict[str, Any]:
-        try: data = await self.client.get_status()
-        except Exception as err: raise UpdateFailed(f"Error polling viewpie status: {err}") from err
+        try:
+            data = await self.client.get_status()
+        except Exception as err:
+            # The updater deliberately restarts the Viewpie API during an
+            # installation. Keep the last known entities available instead
+            # of making the whole integration unavailable during that window.
+            if self._update_install_pending and self.data is not None:
+                _LOGGER.debug("Viewpie API is restarting during installation: %s", err)
+                return dict(self.data)
+            raise UpdateFailed(f"Error polling viewpie status: {err}") from err
         try:
             update_status = await self.client.get_update_status()
+            if self._update_install_pending:
+                started_at = str(update_status.get("started_at") or "")
+                if not started_at or started_at == self._update_install_baseline_started_at:
+                    # Ignore the previous run while waiting for the updater
+                    # to publish a journal with a new start timestamp.
+                    update_status = (self.data or {}).get("update_status", update_status)
+                elif update_status.get("status") in ("success", "failed"):
+                    self._update_install_pending = False
             data["update_status"] = update_status
             failure = (
                 str(update_status.get("error") or update_status.get("message") or "")
@@ -126,7 +144,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Poll the update log every two seconds while an install is starting/running."""
         if self._update_journal_unsub is not None:
             return
-        self._update_journal_poll_attempts = 30
+        self._update_journal_poll_attempts = 90
         self._update_journal_unsub = async_track_time_interval(
             self.hass, self._async_poll_update_journal, timedelta(seconds=2)
         )
@@ -139,29 +157,56 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_poll_update_journal(self, _now) -> None:
         try:
             update_status = await self.client.get_update_status()
-            data = dict(self.data or {})
-            data["update_status"] = update_status
-            self.async_set_updated_data(data)
-            status = str(update_status.get("status") or "unknown")
-            if status == "running":
-                self._update_journal_poll_attempts = 30
-            elif status in ("success", "failed"):
-                self.async_stop_update_journal_polling()
-                return
-            else:
+            started_at = str(update_status.get("started_at") or "")
+            if self._update_install_pending and (
+                not started_at or started_at == self._update_install_baseline_started_at
+            ):
+                # The API may come back before the updater has written its new
+                # journal. Do not re-publish the previous installation log.
                 self._update_journal_poll_attempts -= 1
+            else:
+                data = dict(self.data or {})
+                data["update_status"] = update_status
+                self.async_set_updated_data(data)
+                status = str(update_status.get("status") or "unknown")
+                if status == "running":
+                    self._update_journal_poll_attempts = 90
+                elif status in ("success", "failed"):
+                    self._update_install_pending = False
+                    self.async_stop_update_journal_polling()
+                    return
+                else:
+                    self._update_journal_poll_attempts -= 1
         except Exception as err:
             _LOGGER.debug("Could not poll Viewpie updater journal: %s", err)
             self._update_journal_poll_attempts -= 1
         if self._update_journal_poll_attempts <= 0:
+            self._update_install_pending = False
             self.async_stop_update_journal_polling()
 
     async def async_install_update(self, token: str) -> dict[str, Any]:
         """Start installation through the restricted backend updater."""
+        previous = (self.data or {}).get("update_status", {})
+        previous = previous if isinstance(previous, dict) else {}
+        self._update_install_baseline_started_at = str(previous.get("started_at") or "")
+        self._update_install_pending = True
+        # Clear the stale journal in coordinator state immediately, before
+        # the request can restart the remote API or interrupt HA polling.
+        data = dict(self.data or {})
+        data["update_status"] = {
+            **previous,
+            "status": "starting",
+            "phase": "request",
+            "message": "Home Assistant requested a new Viewpie installation",
+            "error": "",
+            "log": "",
+        }
+        self.async_set_updated_data(data)
         self.async_start_update_journal_polling()
         try:
             result = await self.client.install_update(token)
         except Exception as err:
+            self._update_install_pending = False
             _LOGGER.exception("Could not start Viewpie update")
             data = dict(self.data or {})
             previous = data.get("update_status", {})
