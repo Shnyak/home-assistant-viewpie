@@ -124,7 +124,7 @@ class ViewpieSystemManager extends HTMLElement {
       });
     }
     return String(log || "").replace(
-      /\\b\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})\\b/g,
+      /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b/g,
       timestamp => {
         const date = new Date(timestamp);
         return Number.isNaN(date.getTime()) ? timestamp : formatter.format(date);
