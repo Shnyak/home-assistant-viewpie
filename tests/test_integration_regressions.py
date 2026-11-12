@@ -331,3 +331,17 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_system_manager_exposes_live_settings_and_formats_uptime(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        for required in (
+            'callService("switch"',
+            'callService("number", "set_value"',
+            'callService("select", "select_option"',
+            "Количество аппаратных декодеров",
+            "После подачи питания на экран",
+            'row.label === "Uptime"',
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, source)

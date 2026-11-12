@@ -37,6 +37,7 @@ async def async_setup_entry(
             ViewpiePanelSelect(coordinator),
             ViewpieFullscreenSelect(coordinator),
             ViewpieStartupPanelSelect(coordinator),
+            ViewpieScreenBootModeSelect(coordinator),
         ]
     )
 
@@ -259,4 +260,49 @@ class ViewpieStartupPanelSelect(ViewpieSelectBase):
         except ViewpieConnectionError as err:
             raise HomeAssistantError(
                 f"Failed to set startup panel '{option}': {err}"
+            ) from err
+
+
+
+class ViewpieScreenBootModeSelect(ViewpieSelectBase):
+    """Choose how the physical display behaves after Viewpie/system startup."""
+
+    _attr_name = "Поведение экрана после подачи питания"
+    _attr_icon = "mdi:power-settings"
+
+    _OPTIONS = {
+        "Всегда включать": "always_on",
+        "Всегда выключать": "always_off",
+        "Последнее состояние": "restore",
+    }
+    _LABELS = {value: label for label, value in _OPTIONS.items()}
+
+    def __init__(self, coordinator: ViewpieCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._base_unique_id}_screen_boot_mode"
+
+    @property
+    def available(self) -> bool:
+        return (
+            self.coordinator.last_update_success
+            and "screen_boot_mode" in (self.coordinator.data or {})
+        )
+
+    def _build_options(self) -> list[str]:
+        return list(self._OPTIONS)
+
+    @property
+    def current_option(self) -> str | None:
+        mode = self.status.get("screen_boot_mode", "restore")
+        return self._LABELS.get(str(mode), self._LABELS["restore"])
+
+    async def async_select_option(self, option: str) -> None:
+        mode = self._OPTIONS.get(option)
+        if mode is None:
+            raise HomeAssistantError(f"Unknown screen power mode: {option}")
+        try:
+            await self.coordinator.async_update_settings(screen_boot_mode=mode)
+        except ViewpieConnectionError as err:
+            raise HomeAssistantError(
+                f"Failed to update screen power mode: {err}"
             ) from err
