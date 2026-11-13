@@ -52,6 +52,7 @@ async def test_authenticated_camera_snapshot_proxy(hass: HomeAssistant, mock_cli
     stored_response = await view.get(SimpleNamespace(query={}), "pool")
     assert stored_response.status == 200
     assert stored_response.body == response.body
+    assert stored_response.content_type == "image/jpeg"
     mock_client.get_camera_snapshot.assert_awaited_once_with("pool")
 
 
