@@ -388,15 +388,15 @@ class ViewpieSystemManager extends HTMLElement {
     const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
     const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
     const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
-    const journal = this._updateJournal || {};
-    const installInProgress = Boolean(this._terminalClearPending) || ["starting", "running"].includes(journal.status);
-    const installedVersion = journal.version || updateAttrs.installed_version || "";
+    const installJournal = this._updateJournal || {};
+    const installInProgress = Boolean(this._terminalClearPending) || ["starting", "running"].includes(installJournal.status);
+    const installedVersion = installJournal.version || updateAttrs.installed_version || "";
     const installButton = document.createElement("button");
     installButton.textContent = installInProgress
       ? "Идёт установка"
       : updateAvailable === "Да"
         ? "Установить обновление"
-        : journal.status === "success" || updateAvailable === "Нет"
+        : installJournal.status === "success" || updateAvailable === "Нет"
           ? `Установлена ${installedVersion || latestVersion || ""}`
           : "Установить обновление";
     installButton.disabled = installInProgress || updateAvailable !== "Да" ||
@@ -458,7 +458,7 @@ class ViewpieSystemManager extends HTMLElement {
       updateActions.insertBefore(copyBootstrap, installButton);
     } else if (installInProgress) {
       updateHint.textContent = "Обновление выполняется. После завершения Viewpie автоматически перезагрузит Raspberry Pi.";
-    } else if (journal.status === "success" && updateAvailable !== "Да") {
+    } else if (installJournal.status === "success" && updateAvailable !== "Да") {
       updateHint.textContent = `Установлена версия Viewpie ${installedVersion || latestVersion || ""}. Нажмите «Проверить обновления», чтобы проверить наличие следующей версии.`;
     } else if (updateAvailable === "Нет") {
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
