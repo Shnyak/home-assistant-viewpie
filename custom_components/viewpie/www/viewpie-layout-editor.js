@@ -417,6 +417,17 @@ class ViewpieLayoutEditor extends HTMLElement {
     table.append(head, body);
     dialog.append(table);
     const actions = this._el("div", { class: "picker-actions" });
+    const clear = this._el("button", {}, "Очистить ячейку");
+    clear.type = "button";
+    clear.style.background = "var(--secondary-text-color)";
+    clear.addEventListener("click", () => {
+      const key = `${row},${col}`;
+      const region = this._getCameraRegions().find(item => item.cells.includes(key));
+      (region?.cells || [key]).forEach(position => { delete this._cells[position]; });
+      dialog.close();
+      this._render();
+    });
+    actions.append(clear);
     const cancel = this._el("button", {}, "Отмена");
     cancel.type = "button";
     cancel.addEventListener("click", () => dialog.close());
