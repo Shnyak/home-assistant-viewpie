@@ -447,12 +447,12 @@ class ViewpieLayoutEditor extends HTMLElement {
       .picker-table { width:100%; border-collapse:collapse; table-layout:fixed; margin:12px 0; }
       .picker-table th,.picker-table td { text-align:left; padding:8px; border-bottom:1px solid var(--divider-color); vertical-align:middle; }
       .picker-table th { color:var(--secondary-text-color); font-size:.82rem; }
-      .picker-table th:nth-child(1) { width:18%; }
-      .picker-table th:nth-child(2) { width:24%; }
-      .picker-table th:nth-child(3) { width:58%; }
+      .picker-table th:nth-child(1) { width:11%; }
+      .picker-table th:nth-child(2) { width:25%; }
+      .picker-table th:nth-child(3) { width:64%; }
       .picker-table tr[data-selectable] { cursor:pointer; }
       .picker-table tr[data-selectable]:hover { background:var(--secondary-background-color); }
-      .picker-camera { display:block; width:100%; max-width:25%; padding:3px; border:0; background:transparent; cursor:pointer; }
+      .picker-camera { display:block; width:100%; padding:3px; border:0; background:transparent; cursor:pointer; }
       .picker-camera img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:5px; background:var(--secondary-background-color); }
       .picker-name { font-weight:600; overflow-wrap:anywhere; }
       .picker-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
