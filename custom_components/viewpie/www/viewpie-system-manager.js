@@ -74,6 +74,11 @@ class ViewpieSystemManager extends HTMLElement {
       return name === restartName || name.endsWith(` ${restartName}`);
     }) || null;
     this._updateJournal = this._rows?.find(row => row.label === "Update process")?.state?.attributes || {};
+    if (this._updateJournal.status === "success" && !this._manualCheckAfterInstall) {
+      this._installSuccessAwaitingManualCheck = true;
+    } else if (this._updateJournal.status === "failed") {
+      this._installSuccessAwaitingManualCheck = false;
+    }
     if (this._terminalClearPending && this._updateJournal.started_at &&
         this._updateJournal.started_at !== this._terminalClearBaselineStartedAt &&
         ["running", "success", "failed"].includes(this._updateJournal.status)) {
@@ -375,6 +380,8 @@ class ViewpieSystemManager extends HTMLElement {
     checkButton.addEventListener("click", async () => {
       if (!this._hass || !this._checkUpdateButton) return;
       checkButton.disabled = true;
+      this._manualCheckAfterInstall = true;
+      this._installSuccessAwaitingManualCheck = false;
       updateHint.textContent = "Проверяем наличие обновлений на GitHub…";
       try {
         await this._hass.callService("button", "press", {entity_id:this._checkUpdateButton.entity_id});
@@ -412,7 +419,17 @@ class ViewpieSystemManager extends HTMLElement {
     const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
     const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
     const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
-    if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
+    const installJournalStatus = this._updateJournal?.status || "";
+    const installedVersion = updateAttrs.installed_version || this._updateJournal?.version || this._rows?.find(row => row.label === "Software version")?.state?.state || "";
+    if (installJournalStatus === "running" || this._terminalClearPending) {
+      installButton.textContent = "Идёт установка";
+      installButton.disabled = true;
+      updateHint.textContent = "Viewpie устанавливает пакет. После успешной установки Raspberry Pi автоматически перезагрузится.";
+    } else if (installJournalStatus === "success" && this._installSuccessAwaitingManualCheck) {
+      installButton.textContent = "Установлена " + installedVersion;
+      installButton.disabled = true;
+      updateHint.textContent = "Обновление установлено. Нажмите «Проверить обновления», чтобы выполнить новую проверку.";
+    } else if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
       installButton.disabled = true;
       const bootstrapCommand = String(updateAttrs.bootstrap_command || "");
       updateHint.style.whiteSpace = "pre-line";
@@ -449,6 +466,8 @@ class ViewpieSystemManager extends HTMLElement {
       });
       updateActions.insertBefore(copyBootstrap, installButton);
     } else if (updateAvailable === "Нет") {
+      installButton.textContent = "Установлена " + (installedVersion || latestVersion || "");
+      installButton.disabled = true;
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
     } else if (updateAvailable === "Да") {
       updateHint.textContent = this._installUpdateButton?.state === "unavailable"

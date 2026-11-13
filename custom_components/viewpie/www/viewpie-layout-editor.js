@@ -158,21 +158,26 @@ class ViewpieLayoutEditor extends HTMLElement {
         const key = `${r},${c}`;
         const cell = this._el("div", { class: "cell" });
         cell.append(this._el("small", {}, `Ячейка ${r + 1} × ${c + 1}`));
-        const select = this._el("select");
-        select.title = "Выберите одну камеру для этой ячейки. Одну и ту же камеру можно использовать в разных ячейках.";
-        select.append(this._el("option", { value: "" }, "— не выбрана —"));
-        const selectedCamera = Array.isArray(this._cells[key]) ? this._cells[key][0] : this._cells[key];
-        (this._cameraOptions || []).forEach(camera => {
-          const option = this._el("option", { value: camera }, this._cameraPlacementLabel(camera));
-          select.append(option);
-        });
-        select.value = selectedCamera || "";
-        select.addEventListener("change", () => {
-          this._cells[key] = select.value;
-          // Update the preview immediately without waiting for Save.
-          this._render();
-        });
-        cell.append(select);
+        const raw = this._cells[key];
+        const selectedCamera = Array.isArray(raw) ? (raw[0] || "") : (raw || "");
+        const choose = this._el("button", {}, selectedCamera || "Выбрать камеру");
+        choose.style.width = "100%";
+        choose.style.whiteSpace = "normal";
+        choose.addEventListener("click", () => this._openCameraPicker(r, c));
+        if (selectedCamera) {
+          const clear = this._el("button", {}, "Очистить ячейку");
+          clear.style.width = "100%";
+          clear.style.marginTop = "6px";
+          clear.style.background = "var(--secondary-text-color)";
+          clear.addEventListener("click", () => {
+            const oldRegion = this._getCameraRegions().find(region => region.cells.includes(key));
+            (oldRegion?.cells || [key]).forEach(item => { delete this._cells[item]; });
+            this._render();
+          });
+          cell.append(choose, clear);
+        } else {
+          cell.append(choose);
+        }
         grid.append(cell);
       }
     }
@@ -241,6 +246,132 @@ class ViewpieLayoutEditor extends HTMLElement {
     const status = this._el("div", { class: `status${this._error ? " error" : ""}` }, this._status);
     card.append(status);
     root.append(style, card);
+  }
+
+  _cameraPanelUsage(camera) {
+    const names = new Set();
+    for (const [panelId, response] of Object.entries(this._panelDetails || {})) {
+      const panel = response?.panel || response;
+      if ((panel?.viewports || []).some(vp => (vp?.feeds || []).some(feed =>
+        (typeof feed === "string" ? feed : String(feed?.name || feed?.id || "")) === camera
+      ))) names.add(this._panelLabel(panelId));
+    }
+    return names.size ? [...names].join(", ") : "—";
+  }
+
+  _openCameraPicker(row, col) {
+    const root = this.shadowRoot;
+    root.querySelector(".camera-picker")?.remove();
+    const dialog = this._el("div", { class: "camera-picker" });
+    Object.assign(dialog.style, {
+      position: "fixed", inset: "0", zIndex: "10000", background: "rgba(0,0,0,.62)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "16px"
+    });
+    const panel = this._el("section");
+    Object.assign(panel.style, {
+      width: "min(680px, 100%)", maxHeight: "85vh", overflow: "auto",
+      padding: "16px", borderRadius: "12px", background: "var(--card-background-color)",
+      color: "var(--primary-text-color)", boxShadow: "0 8px 32px rgba(0,0,0,.35)"
+    });
+    panel.append(this._el("h3", {}, `Выбор камеры — ячейка ${row + 1} × ${col + 1}`));
+    panel.append(this._el("p", { class: "muted" }, "Выберите камеру. В следующем окне можно задать размер области, начиная с этой ячейки."));
+    const table = this._el("table");
+    table.style.width = "100%";
+    table.style.borderCollapse = "collapse";
+    const head = this._el("tr");
+    ["Название камеры", "Панели, где используется"].forEach(label => {
+      const th = this._el("th", {}, label);
+      Object.assign(th.style, { textAlign: "left", padding: "9px", borderBottom: "1px solid var(--divider-color)" });
+      head.append(th);
+    });
+    table.append(head);
+    (this._cameraOptions || []).forEach(camera => {
+      const tr = this._el("tr");
+      tr.style.cursor = "pointer";
+      tr.addEventListener("mouseenter", () => tr.style.background = "var(--secondary-background-color)");
+      tr.addEventListener("mouseleave", () => tr.style.background = "");
+      const name = this._el("td", {}, camera);
+      const usage = this._el("td", {}, this._cameraPanelUsage(camera));
+      [name, usage].forEach(td => Object.assign(td.style, {
+        padding: "10px 9px", borderBottom: "1px solid var(--divider-color)", verticalAlign: "top"
+      }));
+      tr.append(name, usage);
+      tr.addEventListener("click", () => {
+        dialog.remove();
+        this._openCameraSpanPicker(camera, row, col);
+      });
+      table.append(tr);
+    });
+    panel.append(table);
+    const close = this._el("button", {}, "Отмена");
+    close.style.marginTop = "14px";
+    close.style.background = "var(--secondary-text-color)";
+    close.addEventListener("click", () => dialog.remove());
+    panel.append(close);
+    dialog.addEventListener("click", event => { if (event.target === dialog) dialog.remove(); });
+    dialog.append(panel);
+    root.append(dialog);
+  }
+
+  _openCameraSpanPicker(camera, row, col) {
+    const options = [1, 4, 9, 16].filter(area => {
+      const side = Math.sqrt(area);
+      if (row + side > this._rows || col + side > this._cols) return false;
+      for (let y = row; y < row + side; y++) {
+        for (let x = col; x < col + side; x++) {
+          const value = this._cells[`${y},${x}`];
+          const occupied = Array.isArray(value) ? value[0] : value;
+          if (occupied && occupied !== camera) return false;
+        }
+      }
+      return true;
+    });
+    if (!options.length) {
+      this._status = "В выбранной стартовой ячейке нет свободной области подходящего размера.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    const dialog = this._el("div", { class: "camera-picker" });
+    Object.assign(dialog.style, {
+      position: "fixed", inset: "0", zIndex: "10000", background: "rgba(0,0,0,.62)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "16px"
+    });
+    const panel = this._el("section");
+    Object.assign(panel.style, {
+      width: "min(420px, 100%)", padding: "18px", borderRadius: "12px",
+      background: "var(--card-background-color)", color: "var(--primary-text-color)"
+    });
+    panel.append(this._el("h3", {}, `Размер области: ${camera}`));
+    panel.append(this._el("p", { class: "muted" }, `Стартовая ячейка: ${row + 1} × ${col + 1}. Размеры, которые не помещаются или пересекают занятые ячейки, скрыты.`));
+    const choices = this._el("div");
+    Object.assign(choices.style, { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "8px" });
+    options.forEach(area => {
+      const side = Math.sqrt(area);
+      const button = this._el("button", {}, area === 1 ? "1 ячейка" : `${area} ячейки (${side} × ${side})`);
+      button.addEventListener("click", () => {
+        for (const [key, value] of Object.entries(this._cells)) {
+          const existing = Array.isArray(value) ? value[0] : value;
+          if (existing === camera) delete this._cells[key];
+        }
+        for (let y = row; y < row + side; y++) {
+          for (let x = col; x < col + side; x++) this._cells[`${y},${x}`] = camera;
+        }
+        dialog.remove();
+        this._status = `Камера «${camera}» занимает область ${side} × ${side}, начиная с ${row + 1} × ${col + 1}.`;
+        this._error = false;
+        this._render();
+      });
+      choices.append(button);
+    });
+    const cancel = this._el("button", {}, "Отмена");
+    cancel.style.marginTop = "12px";
+    cancel.style.background = "var(--secondary-text-color)";
+    cancel.addEventListener("click", () => dialog.remove());
+    panel.append(choices, cancel);
+    dialog.addEventListener("click", event => { if (event.target === dialog) dialog.remove(); });
+    dialog.append(panel);
+    this.shadowRoot.append(dialog);
   }
 
   _makePreviewCell(camera) {
