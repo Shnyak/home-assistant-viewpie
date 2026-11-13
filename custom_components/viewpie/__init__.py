@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -87,7 +88,7 @@ class ViewpieCameraSnapshotView(HomeAssistantView):
                 return web.Response(status=502, text=str(error))
             try:
                 await self.hass.async_add_executor_job(
-                    preview_path.parent.mkdir, parents=True, exist_ok=True
+                    partial(preview_path.parent.mkdir, parents=True, exist_ok=True)
                 )
                 temporary_path = preview_path.with_suffix(".jpg.tmp")
                 await self.hass.async_add_executor_job(temporary_path.write_bytes, image)
