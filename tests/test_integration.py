@@ -36,7 +36,7 @@ async def _add_entry(hass: HomeAssistant):
 
 
 async def test_authenticated_camera_snapshot_proxy(hass: HomeAssistant, mock_client):
-    entry = await _add_entry(hass)
+    await _add_entry(hass)
     from types import SimpleNamespace
     from custom_components.viewpie import ViewpieCameraSnapshotView
 
