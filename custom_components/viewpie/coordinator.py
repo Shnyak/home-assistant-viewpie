@@ -22,6 +22,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._update_journal_poll_attempts = 0
         self._update_install_pending = False
         self._update_install_baseline_started_at = ""
+        self._last_auto_update_check: datetime | None = None
     async def _async_update_data(self) -> dict[str, Any]:
         try:
             data = await self.client.get_status()
@@ -33,6 +34,28 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug("Viewpie API is restarting during installation: %s", err)
                 return dict(self.data)
             raise UpdateFailed(f"Error polling viewpie status: {err}") from err
+        # Check GitHub automatically on startup and then every six hours.
+        now = datetime.now(timezone.utc)
+        if self._last_auto_update_check is None or now - self._last_auto_update_check >= timedelta(hours=6):
+            self._last_auto_update_check = now
+            try:
+                info = await self.client.check_update()
+                self._update_info = {
+                    **info,
+                    "update_check_status": "checked",
+                    "update_check_message": "",
+                    "update_checked_at": now.isoformat(),
+                    "update_check_source": "automatic",
+                }
+            except Exception as err:
+                _LOGGER.warning("Automatic Viewpie update check failed: %s", err)
+                self._update_info = {
+                    **self._update_info,
+                    "update_check_status": "error",
+                    "update_check_message": str(err),
+                    "update_checked_at": now.isoformat(),
+                    "update_check_source": "automatic",
+                }
         try:
             update_status = await self.client.get_update_status()
             if self._update_install_pending:
@@ -136,7 +159,9 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "update_check_status": "checked",
             "update_check_message": "",
             "update_checked_at": checked_at,
+            "update_check_source": "manual",
         }
+        self._last_auto_update_check = datetime.now(timezone.utc)
         await self.async_request_refresh()
         return dict(self._update_info)
 
