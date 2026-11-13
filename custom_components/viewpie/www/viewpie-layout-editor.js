@@ -256,8 +256,8 @@ class ViewpieLayoutEditor extends HTMLElement {
         const blob = await response.blob();
         if (!blob.type.toLowerCase().includes("image/jpeg")) throw new Error("Ответ не JPEG");
         const nextUrl = URL.createObjectURL(blob);
-        const previousUrl = this._cameraPreviewUrls.get(camera);
-        if (previousUrl) URL.revokeObjectURL(previousUrl);
+        const previewUrl = this._cameraPreviewUrls.get(camera);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
         this._cameraPreviewUrls.set(camera, nextUrl);
       } catch (err) {
         failed++;
