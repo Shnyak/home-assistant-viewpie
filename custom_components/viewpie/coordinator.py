@@ -19,6 +19,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._update_info: dict[str, Any] = {}
         self._last_update_failure: str | None = None
         self._update_journal_unsub = None
+        self._update_check_unsub = None
         self._update_journal_poll_attempts = 0
         self._update_install_pending = False
         self._update_install_baseline_started_at = ""
@@ -117,8 +118,30 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data.update(self._update_info)
         return data
 
+    def async_start_update_checks(self) -> None:
+        """Check GitHub once at startup and then every six hours."""
+        if self._update_check_unsub is not None:
+            return
+        self._update_check_unsub = async_track_time_interval(
+            self.hass, self._async_periodic_update_check, timedelta(hours=6)
+        )
+        self.hass.async_create_task(self._async_periodic_update_check(None))
+
+    def async_stop_update_checks(self) -> None:
+        if self._update_check_unsub is not None:
+            self._update_check_unsub()
+            self._update_check_unsub = None
+
+    async def _async_periodic_update_check(self, _now) -> None:
+        if self._update_install_pending:
+            return
+        try:
+            await self.async_check_update()
+        except Exception as err:
+            _LOGGER.warning("Automatic Viewpie update check failed: %s", err)
+
     async def async_check_update(self) -> dict[str, Any]:
-        """Check GitHub only on explicit request, retaining a visible result."""
+        """Check GitHub and retain the latest result for manual and scheduled checks."""
         checked_at = datetime.now(timezone.utc).isoformat()
         try:
             info = await self.client.check_update()
