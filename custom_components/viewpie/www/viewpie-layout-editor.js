@@ -73,6 +73,10 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelOptions = panelSelect ? panelSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._cameraOptions = cameraSelect ? cameraSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._render();
+      if (!this._initialPreviewLoadStarted && this._cameraOptions.length) {
+        this._initialPreviewLoadStarted = true;
+        this._refreshAllCameraPreviews(true);
+      }
     } catch (err) {
       this._status = "Не удалось получить список камер и панелей из Home Assistant.";
       this._error = true;
@@ -157,43 +161,14 @@ class ViewpieLayoutEditor extends HTMLElement {
     fields.append(this._field("Размер квадратной сетки", size));
     card.append(fields);
 
-    const grid = this._el("div", { class: "grid" });
-    grid.style.gridTemplateColumns = `repeat(${this._cols}, minmax(0, 1fr))`;
-    for (let r = 0; r < this._rows; r++) {
-      for (let c = 0; c < this._cols; c++) {
-        const key = `${r},${c}`;
-        const cell = this._el("div", { class: "cell" });
-        cell.append(this._el("small", {}, `Ячейка ${r + 1} × ${c + 1}`));
-        const selectedCamera = Array.isArray(this._cells[key]) ? this._cells[key][0] : this._cells[key];
-        const choose = this._el("button", {}, selectedCamera ? "Камера: " + selectedCamera : "Выбрать камеру");
-        choose.type = "button";
-        choose.addEventListener("click", () => this._openCameraPicker(r, c));
-        cell.append(choose);
-        if (selectedCamera) {
-          const clear = this._el("button", {}, "Очистить область");
-          clear.type = "button";
-          clear.style.background = "var(--secondary-text-color)";
-          clear.addEventListener("click", () => {
-            const region = this._getCameraRegions().find(item => item.cells.includes(key));
-            (region?.cells || [key]).forEach(position => { delete this._cells[position]; });
-            this._render();
-          });
-          cell.append(clear);
-        }
-        grid.append(cell);
-      }
-    }
-    const gridHelp = this._el("p", { class: "muted" },
-      "Нажмите «Выбрать камеру» в стартовой ячейке. После выбора камеры можно назначить ей область 1×1, 2×2, 3×3 или 4×4, если хватает свободного места.");
-    gridHelp.style.margin = "8px 0 0";
-    card.append(gridHelp, grid);
-
-    const previewTitle = this._el("h3", {}, "Предпросмотр раскладки до сохранения");
+    const previewTitle = this._el("h3", {}, "Предпросмотр раскладки");
     previewTitle.style.margin = "20px 0 8px";
     card.append(previewTitle);
     const preview = this._el("div", { class: "preview-grid" });
     preview.style.display = "grid";
     preview.style.gridTemplateColumns = `repeat(${this._cols}, minmax(0, 1fr))`;
+    preview.style.gridTemplateRows = `repeat(${this._rows}, minmax(0, 1fr))`;
+    preview.style.aspectRatio = String((this._cols * 16) / (this._rows * 9));
     preview.style.gap = "4px";
     preview.style.padding = "4px";
     preview.style.border = "1px solid var(--divider-color)";
@@ -205,7 +180,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     catch (err) { this._previewError = err.message || String(err); }
     const covered = new Set();
     for (const region of regions) {
-      const previewCell = this._makePreviewCell(region.camera);
+      const previewCell = this._makePreviewCell(region.camera, region.top, region.left);
       previewCell.style.gridRow = `${region.top + 1} / ${region.bottom + 2}`;
       previewCell.style.gridColumn = `${region.left + 1} / ${region.right + 2}`;
       preview.append(previewCell);
@@ -216,7 +191,7 @@ class ViewpieLayoutEditor extends HTMLElement {
         if (covered.has(`${r},${c}`)) continue;
         const raw = this._cells[`${r},${c}`];
         const camera = Array.isArray(raw) ? (raw[0] || "") : (raw || "");
-        const empty = this._makePreviewCell(camera);
+        const empty = this._makePreviewCell(camera, r, c);
         empty.style.gridRow = String(r + 1);
         empty.style.gridColumn = String(c + 1);
         preview.append(empty);
@@ -231,6 +206,10 @@ class ViewpieLayoutEditor extends HTMLElement {
       "Сетка всегда квадратная (от 1×1 до 8×8). Соседние ячейки одной камеры объединяются только в квадратный viewport (2×2, 3×3 и т. д.). Пустые ячейки допустимы.");
     card.append(help);
     const actions = this._el("div", { class: "actions" });
+    const refresh = this._el("button", {}, this._previewRefreshing ? "Обновляю превью…" : "Обновить превью камер");
+    refresh.disabled = !!this._previewRefreshing;
+    refresh.addEventListener("click", () => this._refreshAllCameraPreviews(false));
+    actions.append(refresh);
     const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
     save.addEventListener("click", () => this._savePanel(save));
     actions.append(save);
@@ -250,27 +229,79 @@ class ViewpieLayoutEditor extends HTMLElement {
     root.append(style, card);
   }
 
-  _makePreviewCell(camera) {
-    const cell = this._el("div", { class: "preview-cell" });
+  async _refreshAllCameraPreviews(silent = false) {
+    if (!this._hass || this._previewRefreshing) return;
+    const cameras = [...(this._cameraOptions || [])];
+    if (!cameras.length) {
+      this._status = "Нет камер для загрузки превью.";
+      this._error = true;
+      this._render();
+      return;
+    }
+    this._previewRefreshing = true;
+    this._previewLoadedCount = 0;
+    if (!silent) this._status = `Обновляю превью: 0 из ${cameras.length}…`;
+    this._render();
+    let failed = 0;
+    for (const camera of cameras) {
+      try {
+        const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
+        const url = `/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`;
+        const accessToken = this._hass?.auth?.data?.access_token;
+        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+        const response = await fetch(url, {
+          method: "GET", credentials: "same-origin", cache: "no-store", headers
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (!blob.type.toLowerCase().includes("image/jpeg")) throw new Error("Ответ не JPEG");
+        const nextUrl = URL.createObjectURL(blob);
+        const previewUrl = this._cameraPreviewUrls.get(camera);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        this._cameraPreviewUrls.set(camera, nextUrl);
+      } catch (err) {
+        failed++;
+        console.warn(`Viewpie preview failed for camera "${camera}":`, err);
+      }
+      this._previewLoadedCount++;
+      this._status = `Обновляю превью: ${this._previewLoadedCount} из ${cameras.length}${failed ? `; ошибок: ${failed}` : ""}…`;
+      this._render();
+    }
+    this._previewRefreshing = false;
+    this._status = failed
+      ? `Превью обновлены: ${cameras.length - failed} из ${cameras.length}. Не удалось получить: ${failed}.`
+      : `Превью всех камер обновлены: ${cameras.length}.`;
+    this._error = failed > 0;
+    this._render();
+  }
+
+  _makePreviewCell(camera, row, col) {
+    const cell = this._el("button", { class: "preview-cell", type: "button" });
+    cell.type = "button";
     Object.assign(cell.style, {
-      minHeight: "72px", minWidth: "0", padding: "8px", boxSizing: "border-box",
+      minWidth: "0", minHeight: "0", padding: "4px", boxSizing: "border-box",
       border: "1px solid var(--divider-color)", borderRadius: "5px",
       background: "var(--card-background-color)", display: "flex",
-      flexDirection: "column", justifyContent: "center", textAlign: "center",
-      overflowWrap: "anywhere"
+      flexDirection: "column", justifyContent: "center", alignItems: "stretch",
+      textAlign: "center", overflow: "hidden", cursor: "pointer", color: "var(--primary-text-color)"
     });
+    cell.addEventListener("click", () => this._openCameraPicker(row, col));
     const previewUrl = camera ? this._cameraPreviewUrls?.get(camera) : "";
     if (previewUrl) {
       const image = this._el("img", { alt: `Кадр камеры ${camera}` });
       image.src = previewUrl;
       Object.assign(image.style, {
-        display: "block", width: "100%", maxHeight: "112px",
-        objectFit: "contain", marginBottom: "6px", borderRadius: "4px"
+        display: "block", width: "100%", height: "100%", minHeight: "0",
+        flex: "1 1 auto", objectFit: "cover", marginBottom: "4px", borderRadius: "3px"
       });
       cell.append(image);
+    } else {
+      const placeholder = this._el("span", {}, camera ? "Превью не загружено" : "＋");
+      placeholder.style.cssText = "flex:1;display:grid;place-items:center;color:var(--secondary-text-color);font-size:.8rem";
+      cell.append(placeholder);
     }
     const label = this._el(camera ? "strong" : "span", {}, camera || "Пусто");
-    label.style.fontSize = ".85rem";
+    label.style.cssText = "display:block;flex:0 0 auto;font-size:.82rem;overflow-wrap:anywhere;padding:2px";
     if (!camera) label.style.color = "var(--secondary-text-color)";
     cell.append(label);
     return cell;
@@ -386,6 +417,17 @@ class ViewpieLayoutEditor extends HTMLElement {
     table.append(head, body);
     dialog.append(table);
     const actions = this._el("div", { class: "picker-actions" });
+    const clear = this._el("button", {}, "Очистить ячейку");
+    clear.type = "button";
+    clear.style.background = "var(--secondary-text-color)";
+    clear.addEventListener("click", () => {
+      const key = `${row},${col}`;
+      const region = this._getCameraRegions().find(item => item.cells.includes(key));
+      (region?.cells || [key]).forEach(position => { delete this._cells[position]; });
+      dialog.close();
+      this._render();
+    });
+    actions.append(clear);
     const cancel = this._el("button", {}, "Отмена");
     cancel.type = "button";
     cancel.addEventListener("click", () => dialog.close());
@@ -428,74 +470,36 @@ class ViewpieLayoutEditor extends HTMLElement {
 
     const preview = this._el("section", { class: "camera-preview" });
     const previewTitle = this._el("strong", {}, "Предпросмотр камеры");
-    const previewImage = this._el("img", { alt: `Кадр камеры ${camera}` });
-    previewImage.style.display = "none";
-    const previewStatus = this._el("p", { class: "muted" }, "Получаю один кадр с камеры…");
-    const previewActions = this._el("div", { class: "picker-actions" });
-    const refreshPreview = this._el("button", {}, "Обновить кадр");
-    refreshPreview.type = "button";
-    previewActions.append(refreshPreview);
-    preview.append(previewTitle, previewImage, previewStatus, previewActions);
+    const previewUrl = this._cameraPreviewUrls.get(camera);
+    if (previewUrl) {
+      const previewImage = this._el("img", { alt: `Кадр камеры ${camera}` });
+      previewImage.src = previewUrl;
+      Object.assign(previewImage.style, {
+        width: "100%", maxHeight: "240px", objectFit: "contain",
+        borderRadius: "5px", background: "var(--primary-background-color)"
+      });
+      preview.append(previewTitle, previewImage);
+    } else {
+      preview.append(previewTitle, this._el("p", { class: "muted" }, "Кадр ещё не загружен. Нажмите «Обновить превью камер» в редакторе."));
+    }
     Object.assign(preview.style, {
       display: "grid", gap: "8px", margin: "12px 0", padding: "10px",
       border: "1px solid var(--divider-color)", borderRadius: "8px"
     });
-    Object.assign(previewImage.style, {
-      width: "100%", maxHeight: "240px", objectFit: "contain",
-      borderRadius: "5px", background: "var(--primary-background-color)"
-    });
-    let previewUrl = "";
-    let previewRequest = 0;
-    dialog.addEventListener("close", () => {
-      previewRequest++;
-      if (previewUrl && this._cameraPreviewUrls.get(camera) !== previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    }, { once: true });
-    const loadPreview = async () => {
-      const request = ++previewRequest;
-      refreshPreview.disabled = true;
-      previewStatus.textContent = "Получаю один кадр с камеры…";
-      try {
-        const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
-        const url = `/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`;
-        const accessToken = this._hass?.auth?.data?.access_token;
-        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-        const response = await fetch(url, {
-          method: "GET",
-          credentials: "same-origin",
-          cache: "no-store",
-          headers
-        });
-        if (!response.ok) {
-          const detail = (await response.text()).trim();
-          throw new Error(detail || `HTTP ${response.status}`);
-        }
-        const blob = await response.blob();
-        if (!blob.type.toLowerCase().includes("image/jpeg")) {
-          throw new Error("Сервер вернул не JPEG-изображение.");
-        }
-        if (request !== previewRequest) return;
-        const nextUrl = URL.createObjectURL(blob);
-        const previousUrl = this._cameraPreviewUrls.get(camera);
-        if (previousUrl) URL.revokeObjectURL(previousUrl);
-        this._cameraPreviewUrls.set(camera, nextUrl);
-        previewUrl = nextUrl;
-        previewImage.src = previewUrl;
-        previewImage.style.display = "block";
-        previewStatus.textContent = "Кадр получен.";
-      } catch (error) {
-        if (request === previewRequest) {
-          previewImage.style.display = "none";
-          previewStatus.textContent = `Предпросмотр недоступен: ${error.message || error}`;
-        }
-      } finally {
-        if (request === previewRequest) refreshPreview.disabled = false;
-      }
-    };
-    refreshPreview.addEventListener("click", loadPreview);
-    loadPreview();
     dialog.append(preview);
+    const clearCell = this._el("button", {}, "Очистить ячейку");
+    clearCell.type = "button";
+    clearCell.style.background = "var(--secondary-text-color)";
+    clearCell.addEventListener("click", () => {
+      const key = `${row},${col}`;
+      const region = this._getCameraRegions().find(item => item.cells.includes(key));
+      (region?.cells || [key]).forEach(position => { delete this._cells[position]; });
+      dialog.close();
+      this._render();
+    });
+    const clearActions = this._el("div", { class: "picker-actions" });
+    clearActions.append(clearCell);
+    dialog.append(clearActions);
 
     dialog.append(this._el("p", { class: "muted" }, `Стартовая ячейка: ${row + 1}.${col + 1}. Доступны только размеры, полностью помещающиеся в сетку и не перекрывающие другие камеры.`));
     const choices = this._el("div", { class: "picker-actions" });
