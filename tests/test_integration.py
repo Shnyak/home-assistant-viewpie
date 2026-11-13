@@ -344,8 +344,8 @@ async def test_config_flow_e2e_with_mocked_device(hass: HomeAssistant, mock_clie
 async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, mock_client):
     # This test exercises the normal post-bootstrap update path.
     mock_client.check_update.return_value = {
-        "installed_version": "0.2.27-fork",
-        "latest_version": "0.2.28-fork",
+        "installed_version": "0.2.34-fork",
+        "latest_version": "0.2.35-fork",
         "update_available": True,
         "can_install": True,
         "package_available": True,
@@ -362,7 +362,7 @@ async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, moc
 
     await coordinator.async_check_update()
     assert mock_client.check_update.await_count == 2  # startup check plus this explicit check
-    assert coordinator.data["latest_version"] == "0.2.28-fork"
+    assert coordinator.data["latest_version"] == "0.2.35-fork"
     assert coordinator.data["can_install"] is True
     assert auto_checked_button.available
     registry = er.async_get(hass)
