@@ -239,6 +239,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     if (!silent) this._status = `Обновляю превью: 0 из ${cameras.length}…`;
     this._render();
     let failed = 0;
+    const failures = [];
     for (const camera of cameras) {
       try {
         const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
@@ -257,6 +258,8 @@ class ViewpieLayoutEditor extends HTMLElement {
         this._cameraPreviewUrls.set(camera, nextUrl);
       } catch (err) {
         failed++;
+        const detail = err?.message || String(err);
+        failures.push(camera + ": " + detail);
         console.warn(`Viewpie preview failed for camera "${camera}":`, err);
       }
       this._previewLoadedCount++;
@@ -265,8 +268,8 @@ class ViewpieLayoutEditor extends HTMLElement {
     }
     this._previewRefreshing = false;
     this._status = failed
-      ? `Превью обновлены: ${cameras.length - failed} из ${cameras.length}. Не удалось получить: ${failed}.`
-      : `Превью всех камер обновлены: ${cameras.length}.`;
+      ? "Превью обновлены: " + (cameras.length - failed) + " из " + cameras.length + ". Ошибок: " + failed + ".\\n" + failures.slice(0, 5).join("\\n") + (failures.length > 5 ? "\\n…и ещё " + (failures.length - 5) : "")
+      : "Превью всех камер обновлены: " + cameras.length + ".";
     this._error = failed > 0;
     this._render();
   }
