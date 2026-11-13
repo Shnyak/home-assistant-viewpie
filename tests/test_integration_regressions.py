@@ -347,6 +347,28 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Ignore the previous run while waiting", coordinator)
         self.assertIn("previous = (self.data or {}).get(\"update_status\", {})", coordinator)
 
+    def test_layout_editor_uses_camera_table_and_start_cell_size_constraints(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_renderCameraPicker", source)
+        self.assertIn("Название камеры", source)
+        self.assertIn("Панели, где используется", source)
+        self.assertIn("_allowedCameraSpans", source)
+        self.assertIn("for (const side of [1, 2, 3, 4])", source)
+        self.assertIn("row + side > this._rows || col + side > this._cols", source)
+        self.assertIn("const candidateCells = []", source)
+        self.assertNotIn("select.title = \"Выберите одну камеру", source)
+
+    def test_update_button_tracks_running_and_installed_versions(self):
+        card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("Идёт установка", card)
+        self.assertIn("Установлена ${installedVersion}", card)
+        self.assertIn('["starting", "running"].includes(installJournal.status)', card)
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        self.assertIn("async_start_update_checks", coordinator)
+        self.assertIn("timedelta(hours=6)", coordinator)
+        self.assertIn("_async_periodic_update_check(None)", coordinator)
+
+
 if __name__ == "__main__":
     unittest.main()
 
