@@ -283,8 +283,10 @@ class ViewpieLayoutEditor extends HTMLElement {
       if (this._cameraPreviewUrls.has(camera)) continue;
       try {
         const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
+        const accessToken = this._hass?.auth?.data?.access_token;
+        const headers = accessToken ? {Authorization: `Bearer ${accessToken}`} : {};
         const response = await fetch(`/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`, {
-          method: "GET", credentials: "same-origin", cache: "no-store"
+          method: "GET", credentials: "same-origin", cache: "no-store", headers
         });
         if (!response.ok) continue;
         const blob = await response.blob();
