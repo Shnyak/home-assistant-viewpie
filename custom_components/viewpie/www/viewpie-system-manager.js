@@ -396,11 +396,13 @@ class ViewpieSystemManager extends HTMLElement {
       (updateAvailable !== "Да" || updateAttrs.manual_check_required);
     installButton.textContent = installInProgress
       ? "Идёт установка"
-      : updateAvailable === "Да" && !updateAttrs.manual_check_required
+      : installJournal.status === "failed"
         ? "Установить обновление"
-        : installedAfterSuccess || updateAvailable === "Нет" || updateAttrs.manual_check_required
-          ? `Установлена ${installedVersion || latestVersion || ""}`
-          : "Установить обновление";
+        : updateAvailable === "Да" && !updateAttrs.manual_check_required
+          ? "Установить обновление"
+          : installedAfterSuccess || updateAvailable === "Нет" || updateAttrs.manual_check_required
+            ? `Установлена ${installedVersion || latestVersion || ""}`
+            : "Установить обновление";
     installButton.disabled = installInProgress || updateAvailable !== "Да" ||
       Boolean(updateAttrs.manual_check_required) ||
       !this._installUpdateButton || this._installUpdateButton.state === "unavailable";
