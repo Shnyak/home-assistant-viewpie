@@ -498,8 +498,10 @@ class ViewpieSystemManager extends HTMLElement {
       integrationCheck.disabled = true;
       integrationUpdateStatus.textContent = "Проверяем последний стабильный релиз на GitHub…";
       try {
-        const response = await fetch("https://api.github.com/repos/Shnyak/home-assistant-viewpie/releases/latest", {
-          headers: {Accept:"application/vnd.github+json"}, cache:"no-store"
+        const accessToken = this._hass?.auth?.data?.access_token;
+        const headers = accessToken ? {Authorization: `Bearer ${accessToken}`} : {};
+        const response = await fetch("/api/viewpie/integration/latest-release", {
+          headers, credentials:"same-origin", cache:"no-store"
         });
         if (!response.ok) throw new Error("GitHub API HTTP " + response.status);
         const release = await response.json();
