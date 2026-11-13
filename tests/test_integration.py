@@ -373,6 +373,7 @@ async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, moc
 
     await install_button.async_press()
     mock_client.install_update.assert_awaited_once_with("test-restart-token")
+    assert not install_button.available
 
 
 
