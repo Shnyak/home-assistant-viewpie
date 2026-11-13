@@ -222,7 +222,7 @@ class ViewpieViewSelector extends HTMLElement {
       h3{font-size:1rem;margin:18px 0 9px}
       .screen-control{margin:0 0 16px}
       .choice-list{display:grid;grid-template-rows:repeat(2,minmax(48px,auto));grid-auto-flow:column;grid-auto-columns:minmax(110px,1fr);gap:8px;overflow-x:auto;padding-bottom:3px}
-      .choice-row{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;min-height:48px;width:100%;padding:7px;border:1px solid var(--divider-color);border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color);font:600 clamp(11px,4cqi,16px)/1.15 inherit;text-align:center;overflow-wrap:anywhere;container-type:inline-size;cursor:pointer}
+      .choice-row{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;min-height:48px;width:100%;padding:7px;border:1px solid var(--divider-color);border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color);font-family:inherit;font-weight:600;font-size:clamp(11px,4cqi,16px);line-height:1.15;text-align:center;overflow-wrap:anywhere;container-type:inline-size;cursor:pointer}
       .choice-row.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
       .choice-label{min-width:0;overflow-wrap:anywhere;text-align:center}
       .choice-label.active{font-weight:700;color:inherit}
