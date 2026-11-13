@@ -355,7 +355,7 @@ async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, moc
     coordinator = hass.data[DOMAIN][entry.entry_id].coordinator
 
     await coordinator.async_check_update()
-    mock_client.check_update.assert_awaited_once()
+    assert mock_client.check_update.await_count == 2  # startup check plus this explicit check
     assert coordinator.data["latest_version"] == "0.2.28-fork"
     assert coordinator.data["can_install"] is True
 
