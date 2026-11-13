@@ -46,6 +46,7 @@ async def test_authenticated_camera_snapshot_proxy(hass: HomeAssistant, mock_cli
     assert response.content_type == "image/jpeg"
     assert response.body.startswith(bytes.fromhex("ffd8"))
 
+    # The first request explicitly refreshes and persists the frame on HA.
     # A later browser/device reads the persisted Home Assistant copy without
     # contacting the camera again.
     stored_response = await view.get(SimpleNamespace(query={}), "pool")
