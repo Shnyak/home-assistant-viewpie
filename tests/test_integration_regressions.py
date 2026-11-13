@@ -330,7 +330,9 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
     def test_initial_setup_accepts_optional_restart_update_token(self):
         source = (INTEGRATION / "config_flow.py").read_text(encoding="utf-8")
         self.assertIn('vol.Optional(CONF_RESTART_TOKEN, default=""): str', source)
-        self.assertIn('CONF_RESTART_TOKEN: (user_input.get(CONF_RESTART_TOKEN) or "").strip()', source)
+        self.assertIn('restart_token = (user_input.get(CONF_RESTART_TOKEN) or "").strip()', source)
+        self.assertIn("auth_token = restart_token or api_key", source)
+        self.assertIn("CONF_RESTART_TOKEN: auth_token", source)
 
     def test_debug_overlay_switch_is_wired_to_native_display_setting(self):
         source = (INTEGRATION / "switch.py").read_text(encoding="utf-8")
