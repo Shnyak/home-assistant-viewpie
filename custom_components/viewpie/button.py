@@ -154,8 +154,11 @@ class ViewpieInstallUpdateButton(ViewpieEntity, ButtonEntity):
 
     @property
     def available(self) -> bool:
+        update_status = self.status.get("update_status") or {}
+        installing = update_status.get("status") in ("starting", "running")
         return (
             self.coordinator.last_update_success
+            and not installing
             and bool(self._restart_token)
             and bool(self.status.get("can_install", False))
             and not requires_bootstrap(self.status.get("installed_version") or self.status.get("software_version"))
@@ -163,6 +166,9 @@ class ViewpieInstallUpdateButton(ViewpieEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         try:
+            update_status = self.status.get("update_status") or {}
+            if update_status.get("status") in ("starting", "running"):
+                raise HomeAssistantError("Идёт установка обновления Viewpie")
             if not self._restart_token:
                 raise HomeAssistantError("Сначала укажите токен Viewpie в настройках интеграции")
             installed_version = self.status.get("installed_version") or self.status.get("software_version")

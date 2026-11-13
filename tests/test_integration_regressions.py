@@ -98,7 +98,9 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         requires_bootstrap = helpers["requires_bootstrap"]
         self.assertTrue(requires_bootstrap("0.2.25-fork"))
         self.assertTrue(requires_bootstrap("0.2.26-fork"))
-        self.assertFalse(requires_bootstrap("0.2.27-fork"))
+        self.assertTrue(requires_bootstrap("0.2.33-fork"))
+        self.assertTrue(requires_bootstrap("0.2.34-fork"))
+        self.assertFalse(requires_bootstrap("0.2.35-fork"))
         self.assertFalse(requires_bootstrap(None))
         sensor = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
         self.assertIn('"bootstrap_required": bootstrap_required', sensor)
@@ -117,6 +119,19 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('device_info["sw_version"]', entity)
 
 
+    def test_layout_editor_loads_one_shot_camera_preview_and_releases_blob(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot", source)
+        self.assertIn("URL.createObjectURL(blob)", source)
+        self.assertIn("URL.revokeObjectURL(previewUrl)", source)
+        self.assertIn("Обновить кадр", source)
+        self.assertIn("this._cameraPreviewUrls.set(camera, nextUrl)", source)
+        self.assertIn("this._cameraPreviewUrls?.get(camera)", source)
+        self.assertIn("URL.revokeObjectURL(url)", source)
+        init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("class ViewpieCameraSnapshotView(HomeAssistantView)", init)
+        self.assertIn('requires_auth = True', init)
+        self.assertIn('hass.http.register_view(ViewpieCameraSnapshotView(hass))', init)
     def test_layout_editor_serializes_adjacent_same_camera_cells_as_one_viewport(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("const height = bottom - top + 1", source)
@@ -346,6 +361,33 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("self._update_journal_poll_attempts = 90", coordinator)
         self.assertIn("Ignore the previous run while waiting", coordinator)
         self.assertIn("previous = (self.data or {}).get(\"update_status\", {})", coordinator)
+
+    def test_layout_editor_uses_camera_table_and_start_cell_size_constraints(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_renderCameraPicker", source)
+        self.assertIn("Название камеры", source)
+        self.assertIn("Панели, где используется", source)
+        self.assertIn("_allowedCameraSpans", source)
+        self.assertIn("for (const side of [1, 2, 3, 4])", source)
+        self.assertIn("row + side > this._rows || col + side > this._cols", source)
+        self.assertIn("const candidateCells = []", source)
+        self.assertNotIn("select.title = \"Выберите одну камеру", source)
+
+    def test_update_button_tracks_running_and_installed_versions(self):
+        card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("Идёт установка", card)
+        self.assertIn("Установлена ", card)
+        self.assertIn('installJournal.status === "failed"', card)
+        self.assertIn("installedVersion || latestVersion", card)
+        self.assertIn('["starting", "running"].includes(installJournal.status)', card)
+        coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
+        self.assertIn("async_start_update_checks", coordinator)
+        self.assertIn("timedelta(hours=6)", coordinator)
+        self.assertIn("_async_periodic_update_check(None)", coordinator)
+        self.assertIn("manual_check_required", card)
+        sensor = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
+        self.assertIn('"manual_check_required"', sensor)
+
 
 if __name__ == "__main__":
     unittest.main()

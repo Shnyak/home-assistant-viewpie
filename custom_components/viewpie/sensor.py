@@ -354,6 +354,7 @@ class ViewpieUpdateAvailableSensor(ViewpieSensorBase):
             "bootstrap_command": BOOTSTRAP_COMMAND if bootstrap_required else None,
             "architecture": self.status.get("architecture"),
             "can_install": bool(self.status.get("can_install", False)) and not bootstrap_required,
+            "manual_check_required": bool(self.status.get("manual_check_required", False)),
             "package_available": bool(self.status.get("package_available", False)),
             "checksum_available": bool(self.status.get("checksum_available", False)),
             "release_url": self.status.get("release_url"),

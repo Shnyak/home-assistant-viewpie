@@ -150,6 +150,36 @@ class ViewpieApiClient:
         result = await self._request("GET", API_UPDATE_CHECK)
         return result if isinstance(result, dict) else {}
 
+    async def get_camera_snapshot(self, name: str) -> bytes:
+        """Fetch a one-shot JPEG snapshot for the layout editor."""
+        if self._session is None:
+            await self.async_init()
+        assert self._session is not None
+        url = f"{self._base_url}/api/cameras/{quote(name, safe='')}/snapshot"
+        try:
+            async with self._session.get(
+                url,
+                headers=self._headers(),
+                timeout=ClientTimeout(total=15),
+            ) as response:
+                if response.status >= 400:
+                    detail = (await response.text()).strip()
+                    raise ViewpieConnectionError(
+                        f"Viewpie snapshot request returned HTTP {response.status}: {detail[:400]}"
+                    )
+                content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+                if content_type != "image/jpeg":
+                    raise ViewpieConnectionError(
+                        f"Viewpie snapshot endpoint returned unexpected content type: {content_type or 'missing'}"
+                    )
+                data = await response.read()
+                if len(data) < 4 or not data.startswith(b"\\xff\\xd8") or not data.endswith(b"\\xff\\xd9"):
+                    raise ViewpieConnectionError("Viewpie returned an invalid JPEG snapshot")
+                return data
+        except aiohttp.ClientError as err:
+            raise ViewpieConnectionError(f"Snapshot request to {url} failed: {err}") from err
+        except TimeoutError as err:
+            raise ViewpieConnectionError(f"Snapshot request to {url} timed out") from err
     async def get_update_status(self) -> dict[str, Any]:
         """Fetch the current updater phase and bounded diagnostic journal."""
         result = await self._request("GET", API_UPDATE_STATUS)

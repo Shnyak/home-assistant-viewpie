@@ -2,10 +2,10 @@
 
 import re
 
-BOOTSTRAP_VERSION = "0.2.27-fork"
+BOOTSTRAP_VERSION = "0.2.35-fork"
 BOOTSTRAP_COMMAND = (
     "curl -fsSL "
-    "https://raw.githubusercontent.com/Shnyak/viewpie/v0.2.27-fork/"
+    "https://raw.githubusercontent.com/Shnyak/viewpie/v0.2.35-fork/"
     "scripts/bootstrap-update.sh | sudo bash"
 )
 

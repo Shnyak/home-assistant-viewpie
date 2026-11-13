@@ -19,9 +19,11 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._update_info: dict[str, Any] = {}
         self._last_update_failure: str | None = None
         self._update_journal_unsub = None
+        self._update_check_unsub = None
         self._update_journal_poll_attempts = 0
         self._update_install_pending = False
         self._update_install_baseline_started_at = ""
+        self._install_authorized_version: str | None = None
     async def _async_update_data(self) -> dict[str, Any]:
         try:
             data = await self.client.get_status()
@@ -112,32 +114,74 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "installed_version": str(current_version),
                 "update_available": False,
                 "can_install": False,
+                "manual_check_required": False,
             })
+            self._install_authorized_version = None
         if self._update_info:
             data.update(self._update_info)
         return data
 
-    async def async_check_update(self) -> dict[str, Any]:
-        """Check GitHub only on explicit request, retaining a visible result."""
+    def async_start_update_checks(self) -> None:
+        """Check GitHub once at startup and then every six hours."""
+        if self._update_check_unsub is not None:
+            return
+        self._update_check_unsub = async_track_time_interval(
+            self.hass, self._async_periodic_update_check, timedelta(hours=6)
+        )
+        self.hass.async_create_task(self._async_periodic_update_check(None))
+
+    def async_stop_update_checks(self) -> None:
+        if self._update_check_unsub is not None:
+            self._update_check_unsub()
+            self._update_check_unsub = None
+
+    async def _async_periodic_update_check(self, _now) -> None:
+        if self._update_install_pending:
+            return
+        try:
+            await self.async_check_update(manual=False)
+        except Exception as err:
+            _LOGGER.warning("Automatic Viewpie update check failed: %s", err)
+
+    async def async_check_update(self, *, manual: bool = True) -> dict[str, Any]:
+        """Check GitHub; only an explicit manual check authorizes installation."""
         checked_at = datetime.now(timezone.utc).isoformat()
         try:
             info = await self.client.check_update()
         except Exception as err:
+            if manual:
+                self._install_authorized_version = None
             self._update_info = {
                 **self._update_info,
+                "can_install": False if manual else self._update_info.get("can_install", False),
+                "manual_check_required": bool(self._update_info.get("update_available")) if manual else self._update_info.get("manual_check_required", False),
                 "update_check_status": "error",
                 "update_check_message": str(err),
                 "update_checked_at": checked_at,
             }
             await self.async_request_refresh()
             raise
+        latest_version = str(info.get("latest_version") or "")
+        if manual:
+            self._install_authorized_version = (
+                latest_version if info.get("update_available") and info.get("can_install") else None
+            )
+        authorized = bool(latest_version) and self._install_authorized_version == latest_version
         self._update_info = {
             **info,
+            "can_install": bool(info.get("can_install")) and authorized,
+            "manual_check_required": bool(info.get("update_available"))
+            and bool(info.get("can_install"))
+            and not authorized,
             "update_check_status": "checked",
             "update_check_message": "",
             "update_checked_at": checked_at,
         }
         await self.async_request_refresh()
+        # A scheduled check and a manual check can overlap. Refresh requests
+        # are coalesced by DataUpdateCoordinator, so publish the latest
+        # authorization decision explicitly after the refresh completes.
+        self.async_set_updated_data({**(self.data or {}), **self._update_info})
         return dict(self._update_info)
 
     def async_start_update_journal_polling(self) -> None:
@@ -190,6 +234,11 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         previous = previous if isinstance(previous, dict) else {}
         self._update_install_baseline_started_at = str(previous.get("started_at") or "")
         self._update_install_pending = True
+        self._install_authorized_version = None
+        self._update_info.update({
+            "can_install": False,
+            "manual_check_required": bool(self._update_info.get("update_available")),
+        })
         # Clear the stale journal in coordinator state immediately, before
         # the request can restart the remote API or interrupt HA polling.
         data = dict(self.data or {})
