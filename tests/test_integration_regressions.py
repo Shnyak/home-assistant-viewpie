@@ -443,6 +443,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("panelButtons.append(sizeControls)", source)
         self.assertNotIn("card.append(sizeControls)", source)
         self.assertIn(".panel-size button{box-sizing:border-box;flex:0 0 46%", source)
+        self.assertIn(".panel-button.add{font-size:clamp(10px,12cqi,16px)}", source)
 
     def test_view_selector_keeps_two_wide_actions_and_three_column_choices(self):
         source = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
