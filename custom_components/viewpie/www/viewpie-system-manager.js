@@ -394,12 +394,13 @@ class ViewpieSystemManager extends HTMLElement {
     const installButton = document.createElement("button");
     installButton.textContent = installInProgress
       ? "Идёт установка"
-      : updateAvailable === "Да"
+      : updateAvailable === "Да" && !updateAttrs.manual_check_required
         ? "Установить обновление"
-        : installJournal.status === "success" || updateAvailable === "Нет"
+        : installJournal.status === "success" || updateAvailable === "Нет" || updateAttrs.manual_check_required
           ? `Установлена ${installedVersion || latestVersion || ""}`
           : "Установить обновление";
     installButton.disabled = installInProgress || updateAvailable !== "Да" ||
+      Boolean(updateAttrs.manual_check_required) ||
       !this._installUpdateButton || this._installUpdateButton.state === "unavailable";
     installButton.addEventListener("click", async () => {
       if (!this._hass || !this._installUpdateButton) return;
@@ -462,6 +463,8 @@ class ViewpieSystemManager extends HTMLElement {
       updateHint.textContent = `Установлена версия Viewpie ${installedVersion || latestVersion || ""}. Нажмите «Проверить обновления», чтобы проверить наличие следующей версии.`;
     } else if (updateAvailable === "Нет") {
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
+    } else if (updateAvailable === "Да" && updateAttrs.manual_check_required) {
+      updateHint.textContent = `Автоматически обнаружена новая версия Viewpie ${latestVersion || updateAttrs.latest_version || ""}. Нажмите «Проверить обновления», чтобы подтвердить её и включить установку.`;
     } else if (updateAvailable === "Да") {
       updateHint.textContent = this._installUpdateButton?.state === "unavailable"
         ? `Доступна версия ${latestVersion || updateAttrs.latest_version || ""}, но установка пока недоступна: проверьте наличие пакета, SHA-256 и токена обновления.`
