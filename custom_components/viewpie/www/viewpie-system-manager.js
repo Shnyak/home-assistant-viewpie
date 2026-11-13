@@ -501,20 +501,24 @@ class ViewpieSystemManager extends HTMLElement {
     integrationInstall.disabled = true;
     integrationInstall.addEventListener("click", async () => {
       const release = this._integrationRelease;
-      const repositoryId = this._integrationHacsRepositoryId;
-      if (!this._hass || !release?.tag_name || !repositoryId) return;
-      if (!window.confirm("Установить интеграцию Viewpie " + release.tag_name + " через HACS? После установки потребуется перезапустить Home Assistant.")) return;
+      const repositoryId = this._integrationRepositoryId;
+      const store = this._integrationStore;
+      if (!this._hass || !release?.tag_name || !repositoryId || !store) return;
+      const storeLabel = store === "marketplace" ? "Marketplace" : "HACS";
+      if (!window.confirm("Установить интеграцию Viewpie " + release.tag_name + " через " + storeLabel + "? После установки потребуется перезапустить Home Assistant.")) return;
       integrationInstall.disabled = true;
-      integrationUpdateStatus.textContent = "Устанавливаем " + release.tag_name + " через HACS…";
+      integrationUpdateStatus.textContent = "Устанавливаем " + release.tag_name + " через " + storeLabel + "…";
       try {
-        await this._hass.callWS({
-          type: "hacs/repository/download",
-          repository: String(repositoryId),
-          version: release.tag_name
-        });
-        integrationUpdateStatus.textContent = "Интеграция " + release.tag_name + " загружена через HACS. Теперь нажмите «Перезапустить HA».";
+        const command = store === "marketplace"
+          ? {type:"marketplace/repository/install", repository:String(repositoryId), version:release.tag_name}
+          : {type:"hacs/repository/download", repository:String(repositoryId), version:release.tag_name};
+        await this._hass.callWS(command);
+        integrationUpdateStatus.textContent = "Интеграция " + release.tag_name + " загружена через " + storeLabel + ". Теперь нажмите «Перезапустить HA».";
       } catch (err) {
-        integrationUpdateStatus.textContent = "HACS не смог установить обновление: " + (err?.message || err);
+        const message = err?.message || String(err);
+        integrationUpdateStatus.textContent = store === "marketplace" && /warning_not_accepted|warning.*accept/i.test(message)
+          ? "Сначала откройте Настройки → Marketplace и подтвердите предупреждение о стороннем ПО. Затем повторите установку."
+          : storeLabel + " не смог установить обновление: " + message;
         integrationInstall.disabled = false;
       }
     });
@@ -541,10 +545,20 @@ class ViewpieSystemManager extends HTMLElement {
           integrationUpdateStatus.textContent = "Установлена актуальная версия интеграции " + current + ". Последний релиз: " + (release.tag_name || "неизвестно") + ".";
           return;
         }
-        const repositoryResponse = await this._hass.callWS({
-          type: "hacs/repositories/list",
-          categories: ["integration"]
-        });
+        let store = "marketplace";
+        let repositoryResponse;
+        try {
+          repositoryResponse = await this._hass.callWS({
+            type: "marketplace/repositories/list",
+            categories: ["integration"]
+          });
+        } catch (_) {
+          store = "hacs";
+          repositoryResponse = await this._hass.callWS({
+            type: "hacs/repositories/list",
+            categories: ["integration"]
+          });
+        }
         const repositories = Array.isArray(repositoryResponse?.result)
           ? repositoryResponse.result
           : (repositoryResponse?.result?.repositories || []);
@@ -552,13 +566,23 @@ class ViewpieSystemManager extends HTMLElement {
           String(item.full_name || "").toLowerCase() === "shnyak/home-assistant-viewpie"
         );
         if (!repository || !repository.installed) {
-          integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ", но установленный репозиторий не найден в HACS. Установка кнопкой доступна только для интеграции, установленной через HACS.";
+          integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ", но установленный репозиторий не найден в Marketplace/HACS. Кнопка установки доступна для интеграции, установленной через один из этих менеджеров.";
           return;
         }
+        const repositoryId = String(repository.id);
+        if (store === "marketplace") {
+          await this._hass.callWS({type:"marketplace/repository/refresh", repository:repositoryId});
+          await this._hass.callWS({type:"marketplace/repository/info", repository_id:repositoryId});
+        } else {
+          await this._hass.callWS({type:"hacs/repository/refresh", repository:repositoryId});
+          await this._hass.callWS({type:"hacs/repository/info", repository_id:repositoryId});
+        }
         this._integrationRelease = release;
-        this._integrationHacsRepositoryId = repository.id;
+        this._integrationRepositoryId = repositoryId;
+        this._integrationStore = store;
         integrationInstall.disabled = false;
-        integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ". Установлена версия " + current + ". Нажмите «Установить обновление», затем перезапустите HA.";
+        const storeLabel = store === "marketplace" ? "Marketplace" : "HACS";
+        integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ". Установлена версия " + current + ". Репозиторий найден в " + storeLabel + ". Нажмите «Установить обновление», затем перезапустите HA.";
       } catch (err) {
         integrationUpdateStatus.textContent = "Не удалось проверить или подготовить обновление интеграции: " + (err?.message || err);
       } finally {
