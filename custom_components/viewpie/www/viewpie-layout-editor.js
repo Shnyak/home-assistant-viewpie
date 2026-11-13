@@ -411,6 +411,65 @@ class ViewpieLayoutEditor extends HTMLElement {
     dialog.replaceChildren();
     dialog.append(this._el("h3", {}, "Размер области камеры"));
     dialog.append(this._el("p", {}, `Камера: ${camera}`));
+
+    const preview = this._el("section", { class: "camera-preview" });
+    const previewTitle = this._el("strong", {}, "Предпросмотр камеры");
+    const previewImage = this._el("img", { alt: `Кадр камеры ${camera}` });
+    previewImage.style.display = "none";
+    const previewStatus = this._el("p", { class: "muted" }, "Получаю один кадр с камеры…");
+    const previewActions = this._el("div", { class: "picker-actions" });
+    const refreshPreview = this._el("button", {}, "Обновить кадр");
+    refreshPreview.type = "button";
+    previewActions.append(refreshPreview);
+    preview.append(previewTitle, previewImage, previewStatus, previewActions);
+    Object.assign(preview.style, {
+      display: "grid", gap: "8px", margin: "12px 0", padding: "10px",
+      border: "1px solid var(--divider-color)", borderRadius: "8px"
+    });
+    Object.assign(previewImage.style, {
+      width: "100%", maxHeight: "240px", objectFit: "contain",
+      borderRadius: "5px", background: "var(--primary-background-color)"
+    });
+    let previewUrl = "";
+    let previewRequest = 0;
+    const loadPreview = async () => {
+      const request = ++previewRequest;
+      refreshPreview.disabled = true;
+      previewStatus.textContent = "Получаю один кадр с камеры…";
+      try {
+        const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
+        const url = `/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`;
+        const response = await fetch(url, {
+          method: "GET", credentials: "same-origin", cache: "no-store"
+        });
+        if (!response.ok) {
+          const detail = (await response.text()).trim();
+          throw new Error(detail || `HTTP ${response.status}`);
+        }
+        const blob = await response.blob();
+        if (!blob.type.toLowerCase().includes("image/jpeg")) {
+          throw new Error("Сервер вернул не JPEG-изображение.");
+        }
+        if (request !== previewRequest) return;
+        const nextUrl = URL.createObjectURL(blob);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = nextUrl;
+        previewImage.src = previewUrl;
+        previewImage.style.display = "block";
+        previewStatus.textContent = "Кадр получен.";
+      } catch (error) {
+        if (request === previewRequest) {
+          previewImage.style.display = "none";
+          previewStatus.textContent = `Предпросмотр недоступен: ${error.message || error}`;
+        }
+      } finally {
+        if (request === previewRequest) refreshPreview.disabled = false;
+      }
+    };
+    refreshPreview.addEventListener("click", loadPreview);
+    loadPreview();
+    dialog.append(preview);
+
     dialog.append(this._el("p", { class: "muted" }, `Стартовая ячейка: ${row + 1}.${col + 1}. Доступны только размеры, полностью помещающиеся в сетку и не перекрывающие другие камеры.`));
     const choices = this._el("div", { class: "picker-actions" });
     const labels = { 1: "1 ячейка", 2: "4 ячейки · 2×2", 3: "9 ячеек · 3×3", 4: "16 ячеек · 4×4" };
