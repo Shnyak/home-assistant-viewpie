@@ -35,6 +35,29 @@ async def _add_entry(hass: HomeAssistant):
     return result["entry"] if "entry" in result else result["result"]
 
 
+async def test_authenticated_camera_snapshot_proxy(hass: HomeAssistant, mock_client):
+    entry = await _add_entry(hass)
+    from types import SimpleNamespace
+    from custom_components.viewpie import ViewpieCameraSnapshotView
+
+    view = ViewpieCameraSnapshotView(hass)
+    response = await view.get(SimpleNamespace(query={}), "pool")
+    assert response.status == 200
+    assert response.content_type == "image/jpeg"
+    assert response.body.startswith(b"\\xff\\xd8")
+    mock_client.get_camera_snapshot.assert_awaited_once_with("pool")
+
+
+async def test_camera_snapshot_proxy_selects_explicit_entry(hass: HomeAssistant, mock_client):
+    entry = await _add_entry(hass)
+    from types import SimpleNamespace
+    from custom_components.viewpie import ViewpieCameraSnapshotView
+
+    view = ViewpieCameraSnapshotView(hass)
+    response = await view.get(SimpleNamespace(query={"entry_id": "missing-entry"}), "pool")
+    assert response.status == 404
+    mock_client.get_camera_snapshot.assert_not_awaited()
+
 async def test_config_flow_success(hass: HomeAssistant, mock_client):
     entry = await _add_entry(hass)
     assert entry.title == "Viewpie (viewpi)"
