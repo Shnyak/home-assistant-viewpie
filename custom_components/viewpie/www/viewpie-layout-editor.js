@@ -432,6 +432,10 @@ class ViewpieLayoutEditor extends HTMLElement {
     });
     let previewUrl = "";
     let previewRequest = 0;
+    dialog.addEventListener("close", () => {
+      previewRequest++;
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    }, { once: true });
     const loadPreview = async () => {
       const request = ++previewRequest;
       refreshPreview.disabled = true;
