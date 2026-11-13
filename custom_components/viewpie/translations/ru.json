@@ -27,7 +27,7 @@
         "title": "Токен службы Viewpie",
         "description": "Укажите токен службы, который используется для всего API Viewpie и перезагрузки Raspberry Pi.",
         "data": {
-          "restart_token": "Токен перезагрузки"
+          "restart_token": "Токен службы Viewpie"
         }
       }
     }
