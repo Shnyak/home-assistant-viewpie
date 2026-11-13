@@ -143,10 +143,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         if (coordinator.data or {}).get("update_status", {}).get("status") == "running":
             coordinator.async_start_update_journal_polling()
+        coordinator.async_start_update_checks()
         _register_services(hass)
     except Exception:
         if runtime is not None:
             runtime.coordinator.async_stop_update_journal_polling()
+            runtime.coordinator.async_stop_update_checks()
             hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         await client.async_close()
         raise
@@ -161,6 +163,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         runtime: ViewpieRuntimeData | None = hass.data[DOMAIN].pop(entry.entry_id, None)
         if runtime is not None:
             runtime.coordinator.async_stop_update_journal_polling()
+            runtime.coordinator.async_stop_update_checks()
             await runtime.client.async_close()
     if not hass.data.get(DOMAIN):
         for service in (
