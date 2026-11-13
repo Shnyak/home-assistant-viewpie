@@ -118,6 +118,16 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('device_info["sw_version"]', entity)
 
 
+    def test_layout_editor_loads_one_shot_camera_preview_and_releases_blob(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot", source)
+        self.assertIn("URL.createObjectURL(blob)", source)
+        self.assertIn("URL.revokeObjectURL(previewUrl)", source)
+        self.assertIn("Обновить кадр", source)
+        init = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("class ViewpieCameraSnapshotView(HomeAssistantView)", init)
+        self.assertIn('requires_auth = True', init)
+        self.assertIn('hass.http.register_view(ViewpieCameraSnapshotView(hass))', init)
     def test_layout_editor_serializes_adjacent_same_camera_cells_as_one_viewport(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("const height = bottom - top + 1", source)
