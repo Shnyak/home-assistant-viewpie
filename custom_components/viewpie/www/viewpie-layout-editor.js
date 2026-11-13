@@ -395,25 +395,24 @@ class ViewpieLayoutEditor extends HTMLElement {
 
   _allowedCameraSpans(row, col, camera) {
     const key = `${row},${col}`;
-    const currentRegion = this._getCameraRegions().find(region => region.cells.includes(key));
-    const replaceable = new Set(currentRegion?.cells || []);
+    const regions = this._getCameraRegions();
+    const currentRegion = regions.find(region => region.cells.includes(key));
     const allowed = [];
     for (const side of [1, 2, 3, 4]) {
       if (row + side > this._rows || col + side > this._cols) continue;
       const candidateCells = [];
-      let free = true;
       for (let y = row; y < row + side; y++) {
-        for (let x = col; x < col + side; x++) {
-          const cell = `${y},${x}`;
-          const assigned = Array.isArray(this._cells[cell]) ? this._cells[cell][0] : this._cells[cell];
-          if (assigned && !replaceable.has(cell)) free = false;
-          candidateCells.push(cell);
-        }
+        for (let x = col; x < col + side; x++) candidateCells.push(`${y},${x}`);
       }
-      if (!free) continue;
+      const candidateSet = new Set(candidateCells);
+      const overlappingRegions = regions.filter(region =>
+        region.cells.some(cell => candidateSet.has(cell))
+      );
       const original = this._cells;
       const trial = { ...original };
-      replaceable.forEach(cell => { delete trial[cell]; });
+      overlappingRegions.forEach(region =>
+        region.cells.forEach(cell => { delete trial[cell]; })
+      );
       candidateCells.forEach(cell => { trial[cell] = camera; });
       this._cells = trial;
       try { this._getCameraRegions(); allowed.push(side); }
@@ -461,8 +460,13 @@ class ViewpieLayoutEditor extends HTMLElement {
       try {
         const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
         const url = `/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`;
+        const accessToken = this._hass?.auth?.data?.access_token;
+        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
         const response = await fetch(url, {
-          method: "GET", credentials: "same-origin", cache: "no-store"
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers
         });
         if (!response.ok) {
           const detail = (await response.text()).trim();
@@ -502,14 +506,45 @@ class ViewpieLayoutEditor extends HTMLElement {
       const button = this._el("button", { class: "picker-size" }, labels[side]);
       button.type = "button";
       button.addEventListener("click", () => {
-        const key = `${row},${col}`;
-        const currentRegion = this._getCameraRegions().find(region => region.cells.includes(key));
-        (currentRegion?.cells || []).forEach(cell => { delete this._cells[cell]; });
+        const candidateCells = [];
         for (let y = row; y < row + side; y++) {
-          for (let x = col; x < col + side; x++) this._cells[`${y},${x}`] = camera;
+          for (let x = col; x < col + side; x++) candidateCells.push(`${y},${x}`);
         }
-        dialog.close();
-        this._render();
+        const candidateSet = new Set(candidateCells);
+        const overlappingRegions = this._getCameraRegions().filter(region =>
+          region.cells.some(cell => candidateSet.has(cell))
+        );
+        const apply = () => {
+          overlappingRegions.forEach(region =>
+            region.cells.forEach(cell => { delete this._cells[cell]; })
+          );
+          candidateCells.forEach(cell => { this._cells[cell] = camera; });
+          dialog.close();
+          this._render();
+        };
+        if (!overlappingRegions.length) {
+          apply();
+          return;
+        }
+        const affectedCameras = [...new Set(overlappingRegions.map(region => region.camera))];
+        dialog.replaceChildren();
+        dialog.append(this._el("h3", {}, "Область уже занята"));
+        dialog.append(this._el(
+          "p",
+          { class: "muted" },
+          `Новая область ${side}×${side} затронет выбранные области: ${affectedCameras.join(", ")}. Их размещение будет удалено целиком. Продолжить?`
+        ));
+        const confirmation = this._el("div", { class: "picker-actions" });
+        const overwrite = this._el("button", {}, "Затереть и продолжить");
+        overwrite.type = "button";
+        overwrite.style.background = "var(--error-color)";
+        overwrite.addEventListener("click", apply);
+        const cancel = this._el("button", {}, "Отменить");
+        cancel.type = "button";
+        cancel.style.background = "var(--secondary-text-color)";
+        cancel.addEventListener("click", () => this._renderCameraSizePicker(dialog, row, col, camera));
+        confirmation.append(overwrite, cancel);
+        dialog.append(confirmation);
       });
       choices.append(button);
     });
