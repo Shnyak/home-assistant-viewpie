@@ -354,9 +354,14 @@ async def test_viewpie_update_check_and_install_buttons(hass: HomeAssistant, moc
     entry = await _add_entry(hass)
     coordinator = hass.data[DOMAIN][entry.entry_id].coordinator
 
+    from custom_components.viewpie.button import ViewpieInstallUpdateButton
+    auto_checked_button = ViewpieInstallUpdateButton(coordinator)
+    assert not auto_checked_button.available  # background check must not authorize install
+
     await coordinator.async_check_update()
     assert mock_client.check_update.await_count == 2  # startup check plus this explicit check
     assert coordinator.data["latest_version"] == "0.2.28-fork"
+    assert coordinator.data["can_install"] is True
     assert coordinator.data["can_install"] is True
 
     hass.config_entries.async_update_entry(entry, options={"restart_token": "test-restart-token"})
