@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -56,6 +57,9 @@ class ViewpieCameraSnapshotView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request: web.Request, camera: str) -> web.Response:
+        """Return a persisted preview, or refresh and persist it on explicit request."""
+        import hashlib
+
         runtimes = self.hass.data.get(DOMAIN, {})
         entry_id = request.query.get("entry_id")
         if entry_id:
@@ -63,22 +67,79 @@ class ViewpieCameraSnapshotView(HomeAssistantView):
             if runtime is None:
                 return web.Response(status=404, text="Viewpie device not found")
         elif len(runtimes) == 1:
-            runtime = next(iter(runtimes.values()))
+            entry_id, runtime = next(iter(runtimes.items()))
         elif not runtimes:
             return web.Response(status=503, text="Viewpie integration is not loaded")
         else:
             return web.Response(status=409, text="Specify entry_id for the Viewpie device")
 
-        try:
-            image = await runtime.client.get_camera_snapshot(camera)
-        except ViewpieConnectionError as error:
-            _LOGGER.warning("Camera preview failed for %s: %s", camera, error)
-            return web.Response(status=502, text=str(error))
+        safe_entry = hashlib.sha256(str(entry_id).encode("utf-8")).hexdigest()[:20]
+        safe_camera = hashlib.sha256(str(camera).encode("utf-8")).hexdigest()
+        preview_path = Path(self.hass.config.path(
+            ".storage", "viewpie_previews", safe_entry, safe_camera + ".jpg"
+        ))
+        refresh = request.query.get("refresh") == "1"
+
+        if refresh:
+            try:
+                image = await runtime.client.get_camera_snapshot(camera)
+            except ViewpieConnectionError as error:
+                _LOGGER.warning("Camera preview refresh failed for %s: %s", camera, error)
+                return web.Response(status=502, text=str(error))
+            try:
+                await self.hass.async_add_executor_job(
+                    partial(preview_path.parent.mkdir, parents=True, exist_ok=True)
+                )
+                temporary_path = preview_path.with_suffix(".jpg.tmp")
+                await self.hass.async_add_executor_job(temporary_path.write_bytes, image)
+                await self.hass.async_add_executor_job(temporary_path.replace, preview_path)
+            except OSError as error:
+                _LOGGER.exception("Could not persist Viewpie preview for %s", camera)
+                return web.Response(status=500, text=f"Could not save preview: {error}")
+        else:
+            try:
+                image = await self.hass.async_add_executor_job(preview_path.read_bytes)
+            except FileNotFoundError:
+                return web.Response(status=404, text="Preview is not stored yet; refresh previews first")
+            except OSError as error:
+                _LOGGER.exception("Could not read stored Viewpie preview for %s", camera)
+                return web.Response(status=500, text=f"Could not read preview: {error}")
+
         return web.Response(
             body=image,
             content_type="image/jpeg",
             headers={"Cache-Control": "no-store"},
         )
+
+class ViewpieIntegrationReleaseView(HomeAssistantView):
+    """Authenticated proxy for the latest stable integration release metadata."""
+
+    url = "/api/viewpie/integration/latest-release"
+    name = "api:viewpie:integration_latest_release"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        timeout = aiohttp.ClientTimeout(total=10)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    "https://api.github.com/repos/Shnyak/home-assistant-viewpie/releases/latest",
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": "Viewpie-Home-Assistant-Integration",
+                    },
+                ) as response:
+                    if response.status != 200:
+                        return web.Response(status=502, text=f"GitHub API HTTP {response.status}")
+                    payload = await response.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+            _LOGGER.warning("Could not check the latest Viewpie integration release: %s", error)
+            return web.Response(status=502, text=f"GitHub release check failed: {error}")
+        return web.json_response({
+            "tag_name": str(payload.get("tag_name") or ""),
+            "html_url": str(payload.get("html_url") or ""),
+        })
+
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Serve and register the bundled Viewpie Lovelace cards."""
@@ -100,6 +161,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         return True
 
     hass.http.register_view(ViewpieCameraSnapshotView(hass))
+    hass.http.register_view(ViewpieIntegrationReleaseView())
 
     static_paths = []
     for filename, url_path, label in cards:

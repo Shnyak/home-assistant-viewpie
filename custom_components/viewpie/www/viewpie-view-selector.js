@@ -221,13 +221,13 @@ class ViewpieViewSelector extends HTMLElement {
       h2{font-size:1.2rem;margin:0 0 14px}
       h3{font-size:1rem;margin:18px 0 9px}
       .screen-control{margin:0 0 16px}
-      .choice-list{display:flex;flex-direction:column;gap:7px}
-      .choice-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
-        padding:8px 10px;border:1px solid var(--divider-color);border-radius:9px}
-      .choice-label{min-width:0;overflow-wrap:anywhere}
-      .choice-label.active{font-weight:600;color:var(--success-color,var(--primary-color))}
-      .panel-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-      .panel-actions button{padding:7px 10px}
+      .choice-list{display:grid;grid-template-rows:repeat(2,minmax(48px,auto));grid-auto-flow:column;grid-auto-columns:minmax(110px,1fr);gap:8px;overflow-x:auto;padding-bottom:3px}
+      .choice-row{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;min-height:48px;width:100%;padding:7px;border:1px solid var(--divider-color);border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color);font-family:inherit;font-weight:600;font-size:clamp(11px,4cqi,16px);line-height:1.15;text-align:center;overflow-wrap:anywhere;container-type:inline-size;cursor:pointer}
+      .choice-row.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
+      .choice-row span{font-size:clamp(10px,12cqi,16px);line-height:1.15}
+      .choice-label{min-width:0;overflow-wrap:anywhere;text-align:center}
+      .choice-label.active{font-weight:700;color:inherit}
+      .panel-actions{display:none}
       .startup-select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--divider-color);
         border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
       button{flex:0 0 auto;font:inherit;border:1px solid var(--divider-color);border-radius:8px;padding:8px 13px;
@@ -257,22 +257,13 @@ class ViewpieViewSelector extends HTMLElement {
     const activePanel = this._activePanel();
     this._panels.forEach(id => {
       const active = id === activePanel;
-      const row = this._el("div", {class: "choice-row"});
-      row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, this._panelLabel(id)));
-      const actions = this._el("div", {class: "panel-actions"});
-      const button = this._el("button", {class: active ? "active" : ""}, active ? "Активна" : "Переключить");
+      const button = this._el("button", {class: "choice-row" + (active ? " active" : "")});
+      button.append(this._el("span", {}, this._panelLabel(id)));
+      button.type = "button";
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy || active;
       button.addEventListener("click", () => this._choosePanel(id));
-      const up = this._el("button", {"aria-label": "Переместить выше", title: "Переместить выше"}, "↑");
-      up.disabled = this._busy || this._panels.indexOf(id) === 0;
-      up.addEventListener("click", () => this._movePanel(id, -1));
-      const down = this._el("button", {"aria-label": "Переместить ниже", title: "Переместить ниже"}, "↓");
-      down.disabled = this._busy || this._panels.indexOf(id) === this._panels.length - 1;
-      down.addEventListener("click", () => this._movePanel(id, 1));
-      actions.append(button, up, down);
-      row.append(actions);
-      panels.append(row);
+      panels.append(button);
     });
     if (!this._panels.length) panels.append(this._el("span", {class: "muted"}, "Панели не найдены."));
     card.append(panels);
@@ -300,14 +291,13 @@ class ViewpieViewSelector extends HTMLElement {
     const activeCamera = this._activeCamera();
     this._cameras.forEach(name => {
       const active = name === activeCamera;
-      const row = this._el("div", {class: "choice-row"});
-      row.append(this._el("span", {class: "choice-label" + (active ? " active" : "")}, name));
-      const button = this._el("button", {class: active ? "active" : ""}, active ? "Вернуться к панели" : "Переключить");
+      const button = this._el("button", {class: "choice-row" + (active ? " active" : "")});
+      button.append(this._el("span", {}, name));
+      button.type = "button";
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy;
       button.addEventListener("click", () => this._chooseCamera(name));
-      row.append(button);
-      cameras.append(row);
+      cameras.append(button);
     });
     if (!this._cameras.length) cameras.append(this._el("span", {class: "muted"}, "Камеры не найдены."));
     card.append(cameras);

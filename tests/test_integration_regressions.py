@@ -91,6 +91,15 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Доступно обновление Viewpie до версии", card)
         self.assertIn("Проверка ещё не выполнялась", card)
 
+    def test_integration_release_check_uses_authenticated_home_assistant_proxy(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("class ViewpieIntegrationReleaseView(HomeAssistantView)", source)
+        self.assertIn('url = "/api/viewpie/integration/latest-release"', source)
+        self.assertIn("hass.http.register_view(ViewpieIntegrationReleaseView())", source)
+        card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn('fetch("/api/viewpie/integration/latest-release"', card)
+        self.assertIn('callService("homeassistant","restart")', card)
+
     def test_legacy_updater_versions_require_one_time_bootstrap(self):
         import runpy
 
@@ -137,6 +146,17 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("class ViewpieCameraSnapshotView(HomeAssistantView)", init)
         self.assertIn('requires_auth = True', init)
         self.assertIn('hass.http.register_view(ViewpieCameraSnapshotView(hass))', init)
+    def test_camera_previews_are_persisted_on_home_assistant_host(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn('"viewpie_previews"', source)
+        self.assertIn('request.query.get("refresh") == "1"', source)
+        self.assertIn("preview_path.read_bytes", source)
+        self.assertIn("temporary_path.write_bytes", source)
+        self.assertIn('headers={"Cache-Control": "no-store"}', source)
+        editor = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("_loadStoredCameraPreviews", editor)
+        self.assertIn("&refresh=1", editor)
+
     def test_layout_editor_serializes_adjacent_same_camera_cells_as_one_viewport(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("const height = bottom - top + 1", source)
@@ -167,10 +187,10 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         manager = (INTEGRATION / "www" / "viewpie-camera-manager.js").read_text(encoding="utf-8")
         self.assertIn("choice-list", selector)
         self.assertIn("choice-row", selector)
-        self.assertIn("Переключить", selector)
+        self.assertIn('class: "choice-row" + (active ? " active" : "")', selector)
         self.assertNotIn("_renderCameraManager", layout)
         self.assertNotIn("manage_camera", layout)
-        self.assertIn("Создать панель", layout)
+        self.assertIn('title:"Создать панель"', layout)
         self.assertIn("Добавить камеру", manager)
         self.assertNotIn("_selectPanel", manager)
         self.assertNotIn("_selectCamera", manager)
@@ -194,7 +214,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         layout = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("_panelLabel(panelId)", selector)
         self.assertIn("this._panelLabel(id)", selector)
-        self.assertIn("Технический ID", layout)
+        self.assertNotIn("Технический ID", layout)
         self.assertIn("_slugifyPanelName", layout)
         self.assertIn("_generatePanelId", layout)
         self.assertIn('ё:"yo"', layout)
@@ -370,7 +390,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
     def test_layout_editor_uses_camera_table_and_start_cell_size_constraints(self):
         source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
         self.assertIn("_renderCameraPicker", source)
-        self.assertIn('this._el("th", {}, "Камера")', source)
+        self.assertIn('this._el("th", {}, "Название камеры")', source)
         self.assertIn('class: "picker-camera"', source)
         self.assertIn('this._el("img", { alt: `Превью ${camera}` })', source)
         self.assertIn("Панели, где используется", source)

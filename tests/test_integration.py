@@ -41,10 +41,18 @@ async def test_authenticated_camera_snapshot_proxy(hass: HomeAssistant, mock_cli
     from custom_components.viewpie import ViewpieCameraSnapshotView
 
     view = ViewpieCameraSnapshotView(hass)
-    response = await view.get(SimpleNamespace(query={}), "pool")
+    response = await view.get(SimpleNamespace(query={"refresh": "1"}), "pool")
     assert response.status == 200
     assert response.content_type == "image/jpeg"
     assert response.body.startswith(bytes.fromhex("ffd8"))
+
+    # The first request explicitly refreshes and persists the frame on HA.
+    # A later browser/device reads the persisted Home Assistant copy without
+    # contacting the camera again.
+    stored_response = await view.get(SimpleNamespace(query={}), "pool")
+    assert stored_response.status == 200
+    assert stored_response.body == response.body
+    assert stored_response.content_type == "image/jpeg"
     mock_client.get_camera_snapshot.assert_awaited_once_with("pool")
 
 
