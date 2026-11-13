@@ -24,8 +24,11 @@ jobs:
         run: python -m pip install --disable-pip-version-check PyYAML pytest pytest-homeassistant-custom-component pytest-socket
       - name: Compile Python files
         run: python -m compileall -q custom_components
-      - name: Check system manager JavaScript syntax
-        run: node --check custom_components/viewpie/www/viewpie-system-manager.js
+      - name: Check all Lovelace JavaScript syntax
+        run: |
+          for file in custom_components/viewpie/www/*.js; do
+            node --check "$file"
+          done
       - name: Run integration regression tests
         env:
           PYTHONPATH: ${{ github.workspace }}
