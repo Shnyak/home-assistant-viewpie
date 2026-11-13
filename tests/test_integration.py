@@ -13,10 +13,11 @@ from custom_components.viewpie.const import (
     CONF_API_KEY,
     CONF_HOST,
     CONF_PORT,
+    CONF_RESTART_TOKEN,
     DOMAIN,
 )
 
-MOCK_CONFIG = {CONF_HOST: "viewpi", CONF_PORT: 8080, CONF_API_KEY: ""}
+MOCK_CONFIG = {CONF_HOST: "viewpi", CONF_PORT: 8080, CONF_API_KEY: "", CONF_RESTART_TOKEN: "test-restart-token"}
 
 E2E_CONFIG = {CONF_HOST: "127.0.0.1", CONF_PORT: 18099, CONF_API_KEY: "testkey"}
 
@@ -33,6 +34,13 @@ async def _add_entry(hass: HomeAssistant):
     assert result["type"] == FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     return result["entry"] if "entry" in result else result["result"]
+
+
+async def test_setup_uses_restart_token_for_all_api_requests(hass: HomeAssistant, mock_client):
+    await _add_entry(hass)
+    from custom_components.viewpie import ViewpieApiClient
+
+    ViewpieApiClient.assert_called_with("viewpi", 8080, "test-restart-token")
 
 
 async def test_authenticated_camera_snapshot_proxy(hass: HomeAssistant, mock_client):

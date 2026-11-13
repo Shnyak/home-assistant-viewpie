@@ -3,17 +3,18 @@
     "step": {
       "user": {
         "title": "Connect to Viewpie",
-        "description": "Enter the address of the device running Viewpie. If the installer displayed a restart token, paste it here to enable restart and verified updates.",
+        "description": "Enter the address and the token printed by the Viewpie installer. The same token protects the complete HTTP API, restart and verified updates.",
         "data": {
           "host": "IP address or hostname",
           "port": "Port",
-          "api_key": "API key (optional)",
-          "restart_token": "Restart / update token"
+          "api_key": "API token (if not using the restart token)",
+          "restart_token": "Viewpie service token"
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the device",
+      "missing_api_token": "Enter the token printed by the Viewpie installer",
       "unknown": "Unknown error"
     },
     "abort": {

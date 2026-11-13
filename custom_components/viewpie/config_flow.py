@@ -81,28 +81,35 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             host = user_input[CONF_HOST].strip()
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
             api_key = user_input.get(CONF_API_KEY) or None
+            restart_token = (user_input.get(CONF_RESTART_TOKEN) or "").strip()
+            auth_token = restart_token or api_key
 
             # Enforce uniqueness per host:port.
             await self.async_set_unique_id(f"{host}:{port}")
             self._abort_if_unique_id_configured()
 
             try:
-                await validate_input(host, port, api_key)
+                if not auth_token:
+                    errors["base"] = "missing_api_token"
+                else:
+                    await validate_input(host, port, auth_token)
             except Exception:  # noqa: BLE001 - map any failure to UI error
                 _LOGGER.exception(
                     "Could not connect to viewpie at %s:%s", host, port
                 )
                 errors["base"] = "cannot_connect"
             else:
-                return self.async_create_entry(
-                    title=f"Viewpie ({host})",
-                    data={
-                        CONF_HOST: host,
-                        CONF_PORT: port,
-                        CONF_API_KEY: api_key or "",
-                        CONF_RESTART_TOKEN: (user_input.get(CONF_RESTART_TOKEN) or "").strip(),
-                    },
-                )
+                if auth_token:
+                    return self.async_create_entry(
+                        title=f"Viewpie ({host})",
+                        data={
+                            CONF_HOST: host,
+                            CONF_PORT: port,
+                            # The API and restart endpoints share the same service token.
+                            CONF_API_KEY: auth_token,
+                            CONF_RESTART_TOKEN: auth_token,
+                        },
+                    )
 
         return self.async_show_form(
             step_id="user",

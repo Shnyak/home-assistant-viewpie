@@ -318,6 +318,15 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Установить обновление", source)
         self.assertIn("window.confirm(", source)
 
+    def test_viewpie_client_uses_shared_restart_token_for_api_auth(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("entry.options.get(CONF_RESTART_TOKEN)", source)
+        self.assertIn("entry.data.get(CONF_RESTART_TOKEN)", source)
+        self.assertIn("entry.data.get(CONF_API_KEY)", source)
+        flow = (INTEGRATION / "config_flow.py").read_text(encoding="utf-8")
+        self.assertIn("auth_token = restart_token or api_key", flow)
+        self.assertIn('errors["base"] = "missing_api_token"', flow)
+
     def test_initial_setup_accepts_optional_restart_update_token(self):
         source = (INTEGRATION / "config_flow.py").read_text(encoding="utf-8")
         self.assertIn('vol.Optional(CONF_RESTART_TOKEN, default=""): str', source)

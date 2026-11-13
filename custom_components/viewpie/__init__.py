@@ -222,7 +222,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Viewpie from a config entry."""
     host: str = entry.data[CONF_HOST]
     port: int = entry.data.get(CONF_PORT, DEFAULT_PORT)
-    api_key: str | None = entry.data.get(CONF_API_KEY) or None
+    api_key: str | None = (
+        entry.options.get(CONF_RESTART_TOKEN)
+        or entry.data.get(CONF_RESTART_TOKEN)
+        or entry.data.get(CONF_API_KEY)
+        or None
+    )
 
     import custom_components.viewpie as vp
 
@@ -253,8 +258,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         await client.async_close()
         raise
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     _LOGGER.info("Viewpie integration set up for %s:%s", host, port)
     return True
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the client when its shared API/restart token changes."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
