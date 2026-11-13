@@ -72,6 +72,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelDetails = panelSelect?.attributes?.panel_details || {};
       this._panelOptions = panelSelect ? panelSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._cameraOptions = cameraSelect ? cameraSelect.attributes.options.filter(x => x !== "Grid") : [];
+      this._entryId = this._entryId || cameraSelect?.attributes?.viewpie_entry_id || panelSelect?.attributes?.viewpie_entry_id || "";
       this._render();
     } catch (err) {
       this._status = "Не удалось получить список камер и панелей из Home Assistant.";
