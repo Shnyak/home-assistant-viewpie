@@ -497,7 +497,7 @@ class ViewpieSystemManager extends HTMLElement {
     const integrationCheck = document.createElement("button");
     integrationCheck.textContent = "Проверить обновления";
     const integrationInstall = document.createElement("button");
-    integrationInstall.textContent = "Установить обновление";
+    integrationInstall.textContent = "Обновить";
     integrationInstall.disabled = true;
     integrationInstall.addEventListener("click", async () => {
       const release = this._integrationRelease;
@@ -702,7 +702,7 @@ class ViewpieSystemManager extends HTMLElement {
     viewpieColumn.className = "update-column";
     const viewpieColumnTitle = document.createElement("div");
     viewpieColumnTitle.className = "update-column-title";
-    viewpieColumnTitle.textContent = "ViewPie";
+    viewpieColumnTitle.textContent = "Обновление ViewPie";
     const viewpieHint = document.createElement("div");
     viewpieHint.className = "update-hint";
     viewpieHint.append(updateHint);
@@ -711,7 +711,7 @@ class ViewpieSystemManager extends HTMLElement {
     integrationColumn.className = "update-column";
     const integrationColumnTitle = document.createElement("div");
     integrationColumnTitle.className = "update-column-title";
-    integrationColumnTitle.textContent = "Интеграция";
+    integrationColumnTitle.textContent = "Обновление интеграции";
     const integrationHint = document.createElement("div");
     integrationHint.className = "update-hint";
     integrationHint.append(integrationUpdateStatus);
