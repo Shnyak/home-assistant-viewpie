@@ -111,6 +111,36 @@ class ViewpieCameraSnapshotView(HomeAssistantView):
             headers={"Cache-Control": "no-store"},
         )
 
+class ViewpieIntegrationReleaseView(HomeAssistantView):
+    """Authenticated proxy for the latest stable integration release metadata."""
+
+    url = "/api/viewpie/integration/latest-release"
+    name = "api:viewpie:integration_latest_release"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        timeout = aiohttp.ClientTimeout(total=10)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    "https://api.github.com/repos/Shnyak/home-assistant-viewpie/releases/latest",
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": "Viewpie-Home-Assistant-Integration",
+                    },
+                ) as response:
+                    if response.status != 200:
+                        return web.Response(status=502, text=f"GitHub API HTTP {response.status}")
+                    payload = await response.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+            _LOGGER.warning("Could not check the latest Viewpie integration release: %s", error)
+            return web.Response(status=502, text=f"GitHub release check failed: {error}")
+        return web.json_response({
+            "tag_name": str(payload.get("tag_name") or ""),
+            "html_url": str(payload.get("html_url") or ""),
+        })
+
+
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Serve and register the bundled Viewpie Lovelace cards."""
     integration_dir = Path(__file__).parent
@@ -131,6 +161,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         return True
 
     hass.http.register_view(ViewpieCameraSnapshotView(hass))
+    hass.http.register_view(ViewpieIntegrationReleaseView())
 
     static_paths = []
     for filename, url_path, label in cards:
