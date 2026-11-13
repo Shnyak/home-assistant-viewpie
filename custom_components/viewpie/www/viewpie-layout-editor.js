@@ -470,6 +470,23 @@ class ViewpieLayoutEditor extends HTMLElement {
     dialog.replaceChildren();
     dialog.append(this._el("h3", {}, `Выбор камеры для ячейки ${row + 1}.${col + 1}`));
     dialog.append(this._el("p", { class: "muted" }, "Выберите камеру. Справа показаны панели, где она уже используется."));
+    const actions = this._el("div", { class: "picker-actions" });
+    const clear = this._el("button", {}, "Очистить ячейку");
+    clear.type = "button";
+    clear.style.background = "var(--secondary-text-color)";
+    clear.addEventListener("click", () => {
+      const key = `${row},${col}`;
+      const region = this._getCameraRegions().find(item => item.cells.includes(key));
+      (region?.cells || [key]).forEach(position => { delete this._cells[position]; });
+      dialog.close();
+      this._render();
+    });
+    actions.append(clear);
+    const cancel = this._el("button", {}, "Отмена");
+    cancel.type = "button";
+    cancel.addEventListener("click", () => dialog.close());
+    actions.append(cancel);
+    dialog.append(actions);
     const table = this._el("table", { class: "picker-table" });
     const head = this._el("thead");
     const header = this._el("tr");
@@ -502,23 +519,6 @@ class ViewpieLayoutEditor extends HTMLElement {
     });
     table.append(head, body);
     dialog.append(table);
-    const actions = this._el("div", { class: "picker-actions" });
-    const clear = this._el("button", {}, "Очистить ячейку");
-    clear.type = "button";
-    clear.style.background = "var(--secondary-text-color)";
-    clear.addEventListener("click", () => {
-      const key = `${row},${col}`;
-      const region = this._getCameraRegions().find(item => item.cells.includes(key));
-      (region?.cells || [key]).forEach(position => { delete this._cells[position]; });
-      dialog.close();
-      this._render();
-    });
-    actions.append(clear);
-    const cancel = this._el("button", {}, "Отмена");
-    cancel.type = "button";
-    cancel.addEventListener("click", () => dialog.close());
-    actions.append(cancel);
-    dialog.append(actions);
   }
 
   _allowedCameraSpans(row, col, camera) {
