@@ -105,126 +105,174 @@ class ViewpieLayoutEditor extends HTMLElement {
     root.replaceChildren();
     const style = this._el("style");
     style.textContent = `
-      :host { display:block; }
-      ha-card { padding:16px; }
-      h2 { font-size:1.25rem; margin:0 0 12px; }
-      .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; }
-      .field { display:flex; flex-direction:column; gap:5px; font-size:.9rem; }
-      input, select { box-sizing:border-box; width:100%; min-width:0; padding:9px; color:var(--primary-text-color); background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:6px; }
-      .grid { display:grid; gap:8px; margin:16px 0; }
-      .cell { min-width:0; padding:8px; border:1px solid var(--divider-color); border-radius:8px; background:var(--secondary-background-color); }
-      .cell small { display:block; margin-bottom:5px; color:var(--secondary-text-color); }
-      button { border:0; border-radius:6px; padding:10px 14px; cursor:pointer; background:var(--primary-color); color:var(--text-primary-color,#fff); font-weight:600; }
-      button[disabled] { opacity:.5; cursor:wait; }
-      .muted { color:var(--secondary-text-color); font-size:.85rem; }
-      .status { margin-top:12px; white-space:pre-wrap; }
-      .error { color:var(--error-color); }
-      .actions { display:flex; flex-wrap:wrap; gap:8px; }
+      :host{display:block}ha-card{padding:16px}h2{font-size:1.2rem;margin:0 0 12px}
+      button{box-sizing:border-box;border:0;border-radius:7px;padding:9px 8px;cursor:pointer;
+        background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600;
+        font-size:clamp(11px,3.2cqi,15px);line-height:1.15;overflow-wrap:anywhere;min-width:0}
+      button:disabled{opacity:.55;cursor:wait}
+      input{box-sizing:border-box;width:100%;min-width:0;padding:9px;color:var(--primary-text-color);
+        background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:6px}
+      .muted{color:var(--secondary-text-color);font-size:.85rem}.error{color:var(--error-color)}
+      .panel-buttons{display:grid;grid-template-rows:repeat(3,minmax(44px,auto));grid-auto-flow:column;
+        grid-auto-columns:minmax(92px,1fr);gap:7px;overflow-x:auto;padding:2px 0 7px}
+      .panel-button{width:100%;height:100%;container-type:inline-size}
+      .panel-button.active{background:var(--success-color,var(--primary-color));outline:2px solid var(--primary-color)}
+      .panel-button.add{font-size:22px}
+      .panel-size{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:4px 0 12px}
+      .panel-size button{width:38px;height:36px;font-size:20px;padding:0}
+      .panel-size span{color:var(--secondary-text-color);font-size:.85rem}
+      .grid{display:grid;gap:8px;margin:12px 0}
+      .preview-grid{display:grid;gap:4px;padding:4px;border:1px solid var(--divider-color);
+        border-radius:8px;background:var(--primary-background-color)}
+      .actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:12px}
+      .actions button{width:100%;height:100%;container-type:inline-size}
+      .actions .secondary{background:var(--secondary-text-color)}
+      .actions .danger{background:var(--error-color)}
+      .status{margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+      .picker-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+      .new-panel-dialog{width:min(420px,calc(100vw - 32px));border:1px solid var(--divider-color);
+        border-radius:12px;padding:18px;color:var(--primary-text-color);background:var(--card-background-color)}
+      .new-panel-dialog::backdrop{background:rgba(0,0,0,.55)}
+      .new-panel-fields{display:grid;gap:10px;margin:12px 0}
+      .new-panel-fields label{display:grid;gap:5px;font-size:.9rem}
+      @media(max-width:420px){.actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
     `;
     const card = this._el("ha-card");
     card.append(this._el("h2", {}, this._config.title || "Редактор раскладки Viewpie"));
-    const fields = this._el("div", { class: "fields" });
 
-    const existing = this._el("select");
-    existing.append(this._el("option", { value: "" }, "Создать новую…"));
+    const panelButtons = this._el("div", {class:"panel-buttons"});
     (this._panelOptions || []).forEach(panelId => {
-      const option = this._el("option", { value: panelId }, this._panelLabel(panelId));
-      if (panelId === this._selectedPanel) option.selected = true;
-      existing.append(option);
+      const button = this._el("button", {class:"panel-button" + (panelId === this._selectedPanel ? " active" : "")}, this._panelLabel(panelId));
+      button.type = "button";
+      button.addEventListener("click", () => this._loadPanelIntoEditor(panelId));
+      panelButtons.append(button);
     });
-    existing.value = this._selectedPanel || "";
-    existing.addEventListener("change", () => this._loadPanelIntoEditor(existing.value));
-    fields.append(this._field("Существующая панель", existing));
+    const addPanel = this._el("button", {class:"panel-button add", title:"Создать панель"}, "+");
+    addPanel.type = "button";
+    addPanel.addEventListener("click", () => this._openNewPanelDialog());
+    panelButtons.append(addPanel);
+    card.append(panelButtons);
 
-    const name = this._el("input", { value: this._panelName, placeholder: "Например, Двор" });
-    name.value = this._panelName;
-    const idPreview = this._el("div", { class: "muted" },
-      this._selectedPanel
-        ? "Технический ID: " + this._panelId
-        : "ID будет создан автоматически: " + this._generatePanelId(this._panelName || "panel"));
-    name.addEventListener("input", () => {
-      this._panelName = name.value;
-      if (!this._selectedPanel) {
-        idPreview.textContent = "ID будет создан автоматически: " + this._generatePanelId(this._panelName || "panel");
-      }
-    });
-    fields.append(this._field("Название панели", name));
-    fields.append(this._field("Технический ID", idPreview));
-
-    const size = this._numberInput(this._rows, 1, 8, value => {
-      this._rows = value;
-      this._cols = value;
-      this._render();
-    });
-    fields.append(this._field("Размер квадратной сетки", size));
-    card.append(fields);
+    if (this._selectedPanel) {
+      const sizeControls = this._el("div", {class:"panel-size"});
+      sizeControls.append(this._el("span", {}, `Размер сетки: ${this._rows} × ${this._cols}`));
+      const minus = this._el("button", {title:"Уменьшить сетку"}, "−");
+      minus.type = "button";
+      minus.disabled = this._rows <= 1;
+      minus.addEventListener("click", () => this._resizeSelectedPanel(-1));
+      const plus = this._el("button", {title:"Увеличить сетку"}, "+");
+      plus.type = "button";
+      plus.disabled = this._rows >= 8;
+      plus.addEventListener("click", () => this._resizeSelectedPanel(1));
+      sizeControls.append(minus, plus);
+      card.append(sizeControls);
+    }
 
     const previewTitle = this._el("h3", {}, "Предпросмотр раскладки");
-    previewTitle.style.margin = "20px 0 8px";
+    previewTitle.style.margin = "14px 0 8px";
     card.append(previewTitle);
-    const preview = this._el("div", { class: "preview-grid" });
-    preview.style.display = "grid";
-    preview.style.gridTemplateColumns = `repeat(${this._cols}, minmax(0, 1fr))`;
-    preview.style.gridTemplateRows = `repeat(${this._rows}, minmax(0, 1fr))`;
+    const preview = this._el("div", {class:"preview-grid"});
+    preview.style.gridTemplateColumns = `repeat(${this._cols},minmax(0,1fr))`;
+    preview.style.gridTemplateRows = `repeat(${this._rows},minmax(0,1fr))`;
     preview.style.aspectRatio = String((this._cols * 16) / (this._rows * 9));
-    preview.style.gap = "4px";
-    preview.style.padding = "4px";
-    preview.style.border = "1px solid var(--divider-color)";
-    preview.style.borderRadius = "8px";
-    preview.style.background = "var(--primary-background-color)";
     let regions = [];
     this._previewError = "";
     try { regions = this._getCameraRegions(); }
     catch (err) { this._previewError = err.message || String(err); }
     const covered = new Set();
     for (const region of regions) {
-      const previewCell = this._makePreviewCell(region.camera, region.top, region.left);
-      previewCell.style.gridRow = `${region.top + 1} / ${region.bottom + 2}`;
-      previewCell.style.gridColumn = `${region.left + 1} / ${region.right + 2}`;
-      preview.append(previewCell);
-      region.cells.forEach(cell => covered.add(cell));
+      const cell = this._makePreviewCell(region.camera, region.top, region.left);
+      cell.style.gridRow = `${region.top + 1} / ${region.bottom + 2}`;
+      cell.style.gridColumn = `${region.left + 1} / ${region.right + 2}`;
+      preview.append(cell);
+      region.cells.forEach(position => covered.add(position));
     }
-    for (let r = 0; r < this._rows; r++) {
-      for (let c = 0; c < this._cols; c++) {
-        if (covered.has(`${r},${c}`)) continue;
-        const raw = this._cells[`${r},${c}`];
+    for (let row = 0; row < this._rows; row++) {
+      for (let col = 0; col < this._cols; col++) {
+        if (covered.has(`${row},${col}`)) continue;
+        const raw = this._cells[`${row},${col}`];
         const camera = Array.isArray(raw) ? (raw[0] || "") : (raw || "");
-        const empty = this._makePreviewCell(camera, r, c);
-        empty.style.gridRow = String(r + 1);
-        empty.style.gridColumn = String(c + 1);
-        preview.append(empty);
+        const cell = this._makePreviewCell(camera,row,col);
+        cell.style.gridRow = String(row + 1);
+        cell.style.gridColumn = String(col + 1);
+        preview.append(cell);
       }
     }
     card.append(preview);
-    if (this._previewError) {
-      const warning = this._el("p", { class: "muted error" }, this._previewError);
-      card.append(warning);
-    }
-    const help = this._el("p", { class: "muted" },
-      "Сетка всегда квадратная (от 1×1 до 8×8). Соседние ячейки одной камеры объединяются только в квадратный viewport (2×2, 3×3 и т. д.). Пустые ячейки допустимы.");
-    card.append(help);
-    const actions = this._el("div", { class: "actions" });
-    const refresh = this._el("button", {}, this._previewRefreshing ? "Обновляю превью…" : "Обновить превью камер");
-    refresh.disabled = !!this._previewRefreshing;
-    refresh.addEventListener("click", () => this._refreshAllCameraPreviews(false));
-    actions.append(refresh);
-    const save = this._el("button", {}, this._selectedPanel ? "Сохранить изменения" : "Создать панель");
-    save.addEventListener("click", () => this._savePanel(save));
+    if (this._previewError) card.append(this._el("p",{class:"muted error"},this._previewError));
+
+    const actions = this._el("div",{class:"actions"});
+    const save = this._el("button",{}, "Сохранить");
+    save.disabled = !this._panelName.trim();
+    save.addEventListener("click",()=>this._savePanel(save));
     actions.append(save);
-    const clear = this._el("button", {}, "Очистить сетку");
-    clear.style.background = "var(--secondary-text-color)";
-    clear.addEventListener("click", () => { this._cells = {}; this._render(); });
+    const refresh = this._el("button",{},this._previewRefreshing ? "Обновление…" : "Обновить");
+    refresh.disabled = !!this._previewRefreshing;
+    refresh.addEventListener("click",()=>this._refreshAllCameraPreviews(false));
+    actions.append(refresh);
+    const clear = this._el("button",{class:"secondary"},"Очистить");
+    clear.addEventListener("click",()=>{this._cells={};this._render();});
     actions.append(clear);
     if (this._selectedPanel) {
-      const remove = this._el("button", {}, "Удалить панель");
-      remove.style.background = "var(--error-color)";
-      remove.addEventListener("click", () => this._deletePanel(remove));
+      const remove = this._el("button",{class:"danger"},"Удалить");
+      remove.addEventListener("click",()=>this._deletePanel(remove));
       actions.append(remove);
+    } else {
+      const spacer = this._el("button",{class:"secondary"}," ");
+      spacer.disabled = true;
+      actions.append(spacer);
     }
     card.append(actions);
-    const status = this._el("div", { class: `status${this._error ? " error" : ""}` }, this._status);
-    card.append(status);
-    root.append(style, card);
+    card.append(this._el("div",{class:`status${this._error ? " error" : ""}`,role:"status"},this._status));
+    root.append(style,card);
+  }
+
+  _openNewPanelDialog() {
+    const dialog = this._el("dialog",{class:"new-panel-dialog"});
+    const title = this._el("h3",{},"Новая панель");
+    const fields = this._el("div",{class:"new-panel-fields"});
+    const name = this._el("input",{placeholder:"Название панели"});
+    const size = this._el("input",{type:"number",min:"1",max:"8",value:String(this._clamp(this._config.rows ?? 2,1,8))});
+    const nameLabel = this._el("label",{},"Название панели");
+    nameLabel.append(name);
+    const sizeLabel = this._el("label",{},"Размер квадратной сетки (1–8)");
+    sizeLabel.append(size);
+    fields.append(nameLabel,sizeLabel);
+    const actions = this._el("div",{class:"picker-actions"});
+    const create = this._el("button",{},"Создать");
+    create.type="button";
+    create.addEventListener("click",()=>{
+      const panelName=name.value.trim();
+      const gridSize=this._clamp(size.value,1,8);
+      if(!panelName){window.alert("Укажите название панели.");return;}
+      this._selectedPanel="";
+      this._panelId=this._generatePanelId(panelName);
+      this._panelName=panelName;
+      this._rows=gridSize;this._cols=gridSize;this._cells={};
+      this._status="Новая панель «"+panelName+"». Заполните сетку и нажмите «Сохранить».";
+      this._error=false;
+      dialog.close();this._render();
+    });
+    const cancel=this._el("button",{class:"secondary"},"Отмена");
+    cancel.type="button";cancel.addEventListener("click",()=>dialog.close());
+    actions.append(create,cancel);
+    dialog.append(title,fields,actions);
+    this.shadowRoot.append(dialog);
+    dialog.addEventListener("close",()=>dialog.remove());
+    dialog.showModal();
+  }
+
+  _resizeSelectedPanel(delta) {
+    if(!this._selectedPanel)return;
+    const next=this._clamp(this._rows+delta,1,8);
+    if(next===this._rows)return;
+    const removed=Object.keys(this._cells).filter(key=>{
+      const [row,col]=key.split(",").map(Number);
+      return row>=next||col>=next;
+    });
+    if(removed.length&&!window.confirm("Уменьшение сетки удалит ячейки за её границами. Продолжить?"))return;
+    removed.forEach(key=>delete this._cells[key]);
+    this._rows=next;this._cols=next;this._render();
   }
 
   async _loadStoredCameraPreviews() {
