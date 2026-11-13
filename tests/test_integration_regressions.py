@@ -369,6 +369,9 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("async_start_update_checks", coordinator)
         self.assertIn("timedelta(hours=6)", coordinator)
         self.assertIn("_async_periodic_update_check(None)", coordinator)
+        self.assertIn("manual_check_required", card)
+        sensor = (INTEGRATION / "sensor.py").read_text(encoding="utf-8")
+        self.assertIn('"manual_check_required"', sensor)
 
 
 if __name__ == "__main__":
