@@ -73,10 +73,6 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelOptions = panelSelect ? panelSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._cameraOptions = cameraSelect ? cameraSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._render();
-      if (!this._initialPreviewLoadStarted && this._cameraOptions.length) {
-        this._initialPreviewLoadStarted = true;
-        this._refreshAllCameraPreviews(true);
-      }
     } catch (err) {
       this._status = "Не удалось получить список камер и панелей из Home Assistant.";
       this._error = true;
@@ -300,10 +296,11 @@ class ViewpieLayoutEditor extends HTMLElement {
       placeholder.style.cssText = "flex:1;display:grid;place-items:center;color:var(--secondary-text-color);font-size:.8rem";
       cell.append(placeholder);
     }
-    const label = this._el(camera ? "strong" : "span", {}, camera || "Пусто");
-    label.style.cssText = "display:block;flex:0 0 auto;font-size:.82rem;overflow-wrap:anywhere;padding:2px";
-    if (!camera) label.style.color = "var(--secondary-text-color)";
-    cell.append(label);
+    if (!camera) {
+      const label = this._el("span", {}, "＋");
+      label.style.cssText = "display:block;flex:0 0 auto;font-size:.82rem;color:var(--secondary-text-color)";
+      cell.append(label);
+    }
     return cell;
   }
 
@@ -376,12 +373,15 @@ class ViewpieLayoutEditor extends HTMLElement {
     style.textContent = `
       dialog.camera-picker { width:min(720px,calc(100vw - 32px)); max-width:720px; max-height:85vh; overflow:auto; border:1px solid var(--divider-color); border-radius:12px; padding:18px; color:var(--primary-text-color); background:var(--card-background-color); }
       dialog.camera-picker::backdrop { background:rgba(0,0,0,.55); }
-      .picker-table { width:100%; border-collapse:collapse; margin:12px 0; }
-      .picker-table th,.picker-table td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--divider-color); vertical-align:top; }
+      .picker-table { width:100%; border-collapse:collapse; table-layout:fixed; margin:12px 0; }
+      .picker-table th,.picker-table td { text-align:left; padding:8px; border-bottom:1px solid var(--divider-color); vertical-align:middle; }
       .picker-table th { color:var(--secondary-text-color); font-size:.82rem; }
+      .picker-table th:first-child { width:44%; }
       .picker-table tr[data-selectable] { cursor:pointer; }
       .picker-table tr[data-selectable]:hover { background:var(--secondary-background-color); }
-      .picker-table button { width:100%; text-align:left; background:transparent; color:var(--primary-text-color); padding:4px 0; }
+      .picker-camera { display:flex; flex-direction:column; gap:5px; width:100%; padding:3px; border:0; background:transparent; color:var(--primary-text-color); text-align:left; cursor:pointer; }
+      .picker-camera img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:5px; background:var(--secondary-background-color); }
+      .picker-camera span { font-size:.78rem; line-height:1.2; overflow-wrap:anywhere; }
       .picker-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
       .picker-size { min-width:120px; }
     `;
@@ -398,14 +398,24 @@ class ViewpieLayoutEditor extends HTMLElement {
     const table = this._el("table", { class: "picker-table" });
     const head = this._el("thead");
     const header = this._el("tr");
-    header.append(this._el("th", {}, "Название камеры"), this._el("th", {}, "Панели, где используется"));
+    header.append(this._el("th", {}, "Камера"), this._el("th", {}, "Панели, где используется"));
     head.append(header);
     const body = this._el("tbody");
     (this._cameraOptions || []).forEach(camera => {
       const tr = this._el("tr", { "data-selectable": "true" });
       const nameCell = this._el("td");
-      const select = this._el("button", {}, camera);
-      select.type = "button";
+      const select = this._el("button", { class: "picker-camera", type: "button" });
+      const previewUrl = this._cameraPreviewUrls?.get(camera);
+      if (previewUrl) {
+        const image = this._el("img", { alt: `Превью ${camera}` });
+        image.src = previewUrl;
+        select.append(image);
+      } else {
+        const placeholder = this._el("div", {}, "Превью не загружено");
+        placeholder.style.cssText = "display:grid;place-items:center;aspect-ratio:16/9;background:var(--secondary-background-color);border-radius:5px;color:var(--secondary-text-color);font-size:.75rem";
+        select.append(placeholder);
+      }
+      select.append(this._el("span", {}, camera));
       select.addEventListener("click", () => this._renderCameraSizePicker(dialog, row, col, camera));
       nameCell.append(select);
       tr.append(nameCell, this._el("td", { class: "muted" }, this._cameraPanelsLabel(camera)));
