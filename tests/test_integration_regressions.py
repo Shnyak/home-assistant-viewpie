@@ -432,6 +432,36 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Authorization: `Bearer ${accessToken}`", source)
 
 
+
+    def test_layout_editor_supports_16x16_and_compact_controls_follow_create(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("this._clamp(config.rows ?? 2, 1, 16)", source)
+        self.assertIn('max:"16"', source)
+        self.assertIn("Размер квадратной сетки (1–16)", source)
+        self.assertIn("layout.slice(0, 16).forEach((row, r) => row.slice(0, 16)", source)
+        self.assertIn('title:"Создать панель"}, "Создать")', source)
+        self.assertIn("panelButtons.append(sizeControls)", source)
+        self.assertNotIn("card.append(sizeControls)", source)
+        self.assertIn(".panel-size button{box-sizing:border-box;flex:0 0 46%", source)
+
+    def test_view_selector_keeps_two_wide_actions_and_three_column_choices(self):
+        source = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        self.assertIn(".top-actions button{grid-column:span 3", source)
+        self.assertIn(".choice-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))", source)
+        self.assertIn("Выключить экран", source)
+        self.assertIn("Обновить", source)
+
+    def test_system_manager_places_startup_panel_after_screen_boot_mode_and_groups_updates(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertLess(source.index('addSelectControl("После подачи питания на экран"'),
+                        source.index('addSelectControl("Панель при запуске"'))
+        self.assertIn(".update-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))", source)
+        self.assertIn('viewpieColumnTitle.textContent = "Обновление ViewPie"', source)
+        self.assertIn('integrationColumnTitle.textContent = "Обновление интеграции"', source)
+        self.assertIn('integrationInstall.textContent = "Обновить"', source)
+        self.assertIn("restartPiButton.textContent = \"Перезагрузить Raspberry Pi\"", source)
+        self.assertIn('restartHa.textContent = "Перезапустить HA"', source)
+
 if __name__ == "__main__":
     unittest.main()
 
