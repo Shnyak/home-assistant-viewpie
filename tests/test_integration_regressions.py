@@ -361,7 +361,8 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
     def test_update_button_tracks_running_and_installed_versions(self):
         card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
         self.assertIn("Идёт установка", card)
-        self.assertIn("Установлена ${installedVersion}", card)
+        self.assertIn("Установлена ", card)
+        self.assertIn("installedVersion || latestVersion", card)
         self.assertIn('["starting", "running"].includes(installJournal.status)', card)
         coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
         self.assertIn("async_start_update_checks", coordinator)
