@@ -396,7 +396,6 @@ class ViewpieLayoutEditor extends HTMLElement {
   _allowedCameraSpans(row, col, camera) {
     const key = `${row},${col}`;
     const regions = this._getCameraRegions();
-    const currentRegion = regions.find(region => region.cells.includes(key));
     const allowed = [];
     for (const side of [1, 2, 3, 4]) {
       if (row + side > this._rows || col + side > this._cols) continue;
