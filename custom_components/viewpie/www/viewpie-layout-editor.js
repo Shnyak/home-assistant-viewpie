@@ -118,8 +118,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       .panel-button{width:100%;height:100%;container-type:inline-size}.panel-button span{font-size:clamp(10px,12cqi,16px);line-height:1.15}
       .panel-button.active{background:var(--success-color,var(--primary-color));outline:2px solid var(--primary-color)}
       .panel-button.add{font-size:22px}
-      .panel-size{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:4px 0 12px}
-      .panel-size button{width:38px;height:36px;font-size:20px;padding:0}
+      .panel-size{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:4px 0 12px}
+      .panel-size button{width:100%;min-height:44px;font-size:20px;padding:0}
       .panel-size span{color:var(--secondary-text-color);font-size:.85rem}
       .grid{display:grid;gap:8px;margin:12px 0}
       .preview-grid{display:grid;gap:4px;padding:4px;border:1px solid var(--divider-color);
@@ -156,7 +156,6 @@ class ViewpieLayoutEditor extends HTMLElement {
 
     if (this._selectedPanel) {
       const sizeControls = this._el("div", {class:"panel-size"});
-      sizeControls.append(this._el("span", {}, `Размер сетки: ${this._rows} × ${this._cols}`));
       const minus = this._el("button", {title:"Уменьшить сетку"}, "−");
       minus.type = "button";
       minus.disabled = this._rows <= 1;

@@ -64,6 +64,7 @@ class ViewpieSystemManager extends HTMLElement {
       debugOverlay: findNamed("switch", ["диагностическая информация"]),
       hardwareLimit: findNamed("number", ["лимит аппаратных декодеров"]),
       screenBootMode: findNamed("select", ["поведение экрана после подачи питания"]),
+      startupPanel: findNamed("select", ["стартовая панель"]),
     };
     const buttons = states.filter(s => s.entity_id.startsWith("button.") && belongsToEntry(s));
     const restartName = normalize("Перезагрузить Raspberry Pi");
@@ -155,9 +156,15 @@ class ViewpieSystemManager extends HTMLElement {
       .value{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
       .muted{color:var(--secondary-text-color);font-weight:400}
       .row:not(:disabled) .value::after{content:"›";padding-left:8px;color:var(--secondary-text-color)}
-      button{font:inherit;border:0;border-radius:8px;padding:11px 16px;background:var(--primary-color);
-        color:var(--text-primary-color,#fff);cursor:pointer;width:100%;margin-top:16px}
+      button{font:inherit;border:0;border-radius:8px;padding:11px 12px;background:var(--primary-color);
+        color:var(--text-primary-color,#fff);cursor:pointer;width:100%;margin:0;min-width:0;overflow-wrap:anywhere}
       button:disabled{opacity:.55;cursor:default}
+      .update-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:8px}
+      .update-column{display:flex;flex-direction:column;gap:8px;min-width:0}
+      .update-column-title{font-size:.92rem;font-weight:700;color:var(--primary-text-color);margin:0 0 2px}
+      .update-actions{display:flex;flex-direction:column;gap:8px}
+      .update-hint{margin-top:4px;color:var(--secondary-text-color);font-size:.84rem;overflow-wrap:anywhere}
+      @media(max-width:420px){.update-grid{gap:8px}.update-column-title{font-size:.86rem}}
       .hint{margin-top:10px;color:var(--secondary-text-color);font-size:.88rem}
       .controls{display:flex;flex-direction:column;gap:10px}
       .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;
@@ -329,7 +336,7 @@ class ViewpieSystemManager extends HTMLElement {
           });
         } catch (err) {
           select.disabled = false;
-          window.alert("Не удалось изменить поведение экрана: " + (err?.message || err));
+          window.alert("Не удалось изменить настройку «" + label + "»: " + (err?.message || err));
         }
       });
       row.append(name, select);
@@ -341,33 +348,29 @@ class ViewpieSystemManager extends HTMLElement {
     addSwitchControl("Диагностическая информация", this._controls?.debugOverlay);
     addNumberControl("Количество аппаратных декодеров", this._controls?.hardwareLimit);
     addSelectControl("После подачи питания на экран", this._controls?.screenBootMode);
+    addSelectControl("Панель при запуске", this._controls?.startupPanel);
     controlsSection.append(controls);
 
-    const button = document.createElement("button");
-    button.textContent = this._button ? "Перезагрузить Raspberry Pi" : "Кнопка перезагрузки недоступна";
-    button.disabled = !this._button || this._button.state === "unavailable";
-    button.addEventListener("click", async () => {
+    const restartPiButton = document.createElement("button");
+    restartPiButton.textContent = "Перезагрузить Raspberry Pi";
+    restartPiButton.disabled = !this._button || this._button.state === "unavailable";
+    restartPiButton.addEventListener("click", async () => {
       if (!this._hass || !this._button) return;
       if (!window.confirm("Перезагрузить Raspberry Pi? Видеостена временно станет недоступна.")) return;
-      button.disabled = true;
+      restartPiButton.disabled = true;
       try {
         await this._hass.callService("button", "press", {entity_id:this._button.entity_id});
       } catch (err) {
         window.alert("Не удалось отправить команду перезагрузки: " + (err?.message || err));
       } finally {
-        button.disabled = false;
+        restartPiButton.disabled = false;
       }
     });
-    const hint = document.createElement("div");
-    hint.className = "hint";
-    hint.textContent = this._button ? "Команда выполняется на Raspberry Pi." :
-      "Задайте токен перезагрузки в параметрах интеграции и VIEWPIE_RESTART_TOKEN на Raspberry Pi.";
     const updateSection = document.createElement("div");
     updateSection.className = "section";
     updateSection.textContent = "Обновление Viewpie";
     const updateActions = document.createElement("div");
-    updateActions.style.display = "grid";
-    updateActions.style.gap = "8px";
+    updateActions.className = "update-actions";
 
     const checkButton = document.createElement("button");
     checkButton.textContent = "Проверить обновления";
@@ -422,7 +425,7 @@ class ViewpieSystemManager extends HTMLElement {
         window.alert("Не удалось запустить обновление: " + (err?.message || err));
       }
     });
-    updateActions.append(checkButton, installButton);
+    updateActions.append(checkButton, installButton, restartPiButton);
     const updateHint = document.createElement("div");
     updateHint.className = "hint";
     if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
@@ -488,14 +491,38 @@ class ViewpieSystemManager extends HTMLElement {
     integrationUpdateSection.textContent = "Обновление интеграции Home Assistant";
     const integrationUpdateStatus = document.createElement("div");
     integrationUpdateStatus.className = "hint";
-    integrationUpdateStatus.textContent = "Установленная версия: 1.6.9. Проверка выполняется вручную.";
+    integrationUpdateStatus.textContent = "Установленная версия: 1.6.10. Нажмите «Проверить», чтобы найти обновление.";
     const integrationUpdateActions = document.createElement("div");
-    integrationUpdateActions.style.display = "grid";
-    integrationUpdateActions.style.gap = "8px";
+    integrationUpdateActions.className = "update-actions";
     const integrationCheck = document.createElement("button");
-    integrationCheck.textContent = "Проверить версию интеграции";
+    integrationCheck.textContent = "Проверить обновления";
+    const integrationInstall = document.createElement("button");
+    integrationInstall.textContent = "Установить обновление";
+    integrationInstall.disabled = true;
+    integrationInstall.addEventListener("click", async () => {
+      const release = this._integrationRelease;
+      const repositoryId = this._integrationHacsRepositoryId;
+      if (!this._hass || !release?.tag_name || !repositoryId) return;
+      if (!window.confirm("Установить интеграцию Viewpie " + release.tag_name + " через HACS? После установки потребуется перезапустить Home Assistant.")) return;
+      integrationInstall.disabled = true;
+      integrationUpdateStatus.textContent = "Устанавливаем " + release.tag_name + " через HACS…";
+      try {
+        await this._hass.callWS({
+          type: "hacs/repository/download",
+          repository: String(repositoryId),
+          version: release.tag_name
+        });
+        integrationUpdateStatus.textContent = "Интеграция " + release.tag_name + " загружена через HACS. Теперь нажмите «Перезапустить HA».";
+      } catch (err) {
+        integrationUpdateStatus.textContent = "HACS не смог установить обновление: " + (err?.message || err);
+        integrationInstall.disabled = false;
+      }
+    });
     integrationCheck.addEventListener("click", async () => {
       integrationCheck.disabled = true;
+      integrationInstall.disabled = true;
+      this._integrationRelease = null;
+      this._integrationHacsRepositoryId = null;
       integrationUpdateStatus.textContent = "Проверяем последний стабильный релиз на GitHub…";
       try {
         const accessToken = this._hass?.auth?.data?.access_token;
@@ -506,32 +533,37 @@ class ViewpieSystemManager extends HTMLElement {
         if (!response.ok) throw new Error("GitHub API HTTP " + response.status);
         const release = await response.json();
         const latest = String(release.tag_name || "").replace(/^v/i,"");
-        const current = "1.6.9";
+        const current = "1.6.10";
         const parse = value => value.split(".").map(part => Number.parseInt(part,10) || 0);
         const a=parse(latest), b=parse(current);
         const newer=a.some((value,index)=>value>(b[index]||0) && a.slice(0,index).every((n,i)=>n===(b[i]||0)));
-        integrationUpdateStatus.textContent = newer
-          ? "Доступна интеграция " + release.tag_name + ". Установлена версия " + current + ". Откройте HACS для обновления, затем перезапустите Home Assistant."
-          : "Установлена актуальная версия интеграции " + current + ". Последний релиз: " + (release.tag_name || "неизвестно") + ".";
-        if (newer && release.html_url) {
-          const releaseLink = document.createElement("a");
-          releaseLink.href = release.html_url;
-          releaseLink.target = "_blank";
-          releaseLink.rel = "noopener";
-          releaseLink.textContent = "Открыть релиз";
-          releaseLink.style.color = "var(--primary-color)";
-          integrationUpdateStatus.append(document.createElement("br"), releaseLink);
+        if (!newer) {
+          integrationUpdateStatus.textContent = "Установлена актуальная версия интеграции " + current + ". Последний релиз: " + (release.tag_name || "неизвестно") + ".";
+          return;
         }
+        const repositoryResponse = await this._hass.callWS({
+          type: "hacs/repositories/list",
+          categories: ["integration"]
+        });
+        const repositories = Array.isArray(repositoryResponse?.result)
+          ? repositoryResponse.result
+          : (repositoryResponse?.result?.repositories || []);
+        const repository = repositories.find(item =>
+          String(item.full_name || "").toLowerCase() === "shnyak/home-assistant-viewpie"
+        );
+        if (!repository || !repository.installed) {
+          integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ", но установленный репозиторий не найден в HACS. Установка кнопкой доступна только для интеграции, установленной через HACS.";
+          return;
+        }
+        this._integrationRelease = release;
+        this._integrationHacsRepositoryId = repository.id;
+        integrationInstall.disabled = false;
+        integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ". Установлена версия " + current + ". Нажмите «Установить обновление», затем перезапустите HA.";
       } catch (err) {
-        integrationUpdateStatus.textContent = "Не удалось проверить релиз интеграции: " + (err?.message || err);
+        integrationUpdateStatus.textContent = "Не удалось проверить или подготовить обновление интеграции: " + (err?.message || err);
       } finally {
         integrationCheck.disabled = false;
       }
-    });
-    const openHacs = document.createElement("button");
-    openHacs.textContent = "Открыть интеграцию в HACS";
-    openHacs.addEventListener("click", () => {
-      window.open("https://my.home-assistant.io/redirect/hacs_repository/?owner=Shnyak&repository=home-assistant-viewpie&category=integration", "_blank", "noopener");
     });
     const restartHa = document.createElement("button");
     restartHa.textContent = "Перезапустить Home Assistant";
@@ -545,7 +577,8 @@ class ViewpieSystemManager extends HTMLElement {
         window.alert("Не удалось отправить команду перезапуска Home Assistant: " + (err?.message || err));
       }
     });
-    integrationUpdateActions.append(integrationCheck,openHacs,restartHa);
+    restartHa.textContent = "Перезапустить HA";
+    integrationUpdateActions.append(integrationCheck, integrationInstall, restartHa);
 
     const journalEntity = this._rows?.find(row => row.label === "Update process")?.state;
     const journal = journalEntity?.attributes || {};
@@ -637,7 +670,29 @@ class ViewpieSystemManager extends HTMLElement {
     terminalLog.className = waitingForNewUpdate || !journal.log ? "terminal-empty" : "";
     terminal.append(terminalLog);
 
-    card.append(title, section, rows, controlsSection, button, hint, updateSection, updateActions, updateHint, integrationUpdateSection, integrationUpdateActions, integrationUpdateStatus, terminal);
+    updateSection.textContent = "Обновления";
+    const updateGrid = document.createElement("div");
+    updateGrid.className = "update-grid";
+    const viewpieColumn = document.createElement("section");
+    viewpieColumn.className = "update-column";
+    const viewpieColumnTitle = document.createElement("div");
+    viewpieColumnTitle.className = "update-column-title";
+    viewpieColumnTitle.textContent = "ViewPie";
+    const viewpieHint = document.createElement("div");
+    viewpieHint.className = "update-hint";
+    viewpieHint.append(updateHint);
+    viewpieColumn.append(viewpieColumnTitle, updateActions, viewpieHint);
+    const integrationColumn = document.createElement("section");
+    integrationColumn.className = "update-column";
+    const integrationColumnTitle = document.createElement("div");
+    integrationColumnTitle.className = "update-column-title";
+    integrationColumnTitle.textContent = "Интеграция";
+    const integrationHint = document.createElement("div");
+    integrationHint.className = "update-hint";
+    integrationHint.append(integrationUpdateStatus);
+    integrationColumn.append(integrationColumnTitle, integrationUpdateActions, integrationHint);
+    updateGrid.append(viewpieColumn, integrationColumn);
+    card.append(title, section, rows, controlsSection, updateSection, updateGrid, terminal);
     root.append(style, card);
     // The card is rebuilt on every Home Assistant state update. Scroll after
     // the new content has been laid out so the newest log line stays visible.
