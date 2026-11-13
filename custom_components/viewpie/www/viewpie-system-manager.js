@@ -526,7 +526,8 @@ class ViewpieSystemManager extends HTMLElement {
       integrationCheck.disabled = true;
       integrationInstall.disabled = true;
       this._integrationRelease = null;
-      this._integrationHacsRepositoryId = null;
+      this._integrationRepositoryId = null;
+      this._integrationStore = null;
       integrationUpdateStatus.textContent = "Проверяем последний стабильный релиз на GitHub…";
       try {
         const accessToken = this._hass?.auth?.data?.access_token;
