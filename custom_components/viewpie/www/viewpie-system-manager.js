@@ -385,9 +385,22 @@ class ViewpieSystemManager extends HTMLElement {
       }
     });
 
+    const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
+    const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
+    const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
+    const journal = this._updateJournal || {};
+    const installInProgress = Boolean(this._terminalClearPending) || ["starting", "running"].includes(journal.status);
+    const installedVersion = journal.version || updateAttrs.installed_version || "";
     const installButton = document.createElement("button");
-    installButton.textContent = "Установить обновление";
-    installButton.disabled = !this._installUpdateButton || this._installUpdateButton.state === "unavailable";
+    installButton.textContent = installInProgress
+      ? "Идёт установка"
+      : updateAvailable === "Да"
+        ? "Установить обновление"
+        : journal.status === "success" || updateAvailable === "Нет"
+          ? `Установлена ${installedVersion || latestVersion || ""}`
+          : "Установить обновление";
+    installButton.disabled = installInProgress || updateAvailable !== "Да" ||
+      !this._installUpdateButton || this._installUpdateButton.state === "unavailable";
     installButton.addEventListener("click", async () => {
       if (!this._hass || !this._installUpdateButton) return;
       if (!window.confirm("Установить последнюю проверенную версию Viewpie? Видеостена временно перезапустится.")) return;
@@ -402,16 +415,11 @@ class ViewpieSystemManager extends HTMLElement {
         this._terminalClearPending = false;
         this._render();
         window.alert("Не удалось запустить обновление: " + (err?.message || err));
-      } finally {
-        installButton.disabled = false;
       }
     });
     updateActions.append(checkButton, installButton);
     const updateHint = document.createElement("div");
     updateHint.className = "hint";
-    const updateAvailable = this._rows?.find(row => row.label === "Update available")?.state?.state;
-    const latestVersion = this._rows?.find(row => row.label === "Latest version")?.state?.state;
-    const updateAttrs = this._rows?.find(row => row.label === "Update available")?.state?.attributes || {};
     if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
       installButton.disabled = true;
       const bootstrapCommand = String(updateAttrs.bootstrap_command || "");
@@ -448,6 +456,10 @@ class ViewpieSystemManager extends HTMLElement {
         }
       });
       updateActions.insertBefore(copyBootstrap, installButton);
+    } else if (installInProgress) {
+      updateHint.textContent = "Обновление выполняется. После завершения Viewpie автоматически перезагрузит Raspberry Pi.";
+    } else if (journal.status === "success" && updateAvailable !== "Да") {
+      updateHint.textContent = `Установлена версия Viewpie ${installedVersion || latestVersion || ""}. Нажмите «Проверить обновления», чтобы проверить наличие следующей версии.`;
     } else if (updateAvailable === "Нет") {
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
     } else if (updateAvailable === "Да") {
