@@ -42,7 +42,7 @@ def mock_client_fixture():
         inst.get_cameras = AsyncMock(
             return_value=[{"name": "pool"}, {"name": "yard"}]
         )
-        inst.get_camera_snapshot = AsyncMock(return_value=b"\\xff\\xd8testjpeg\\xff\\xd9")
+        inst.get_camera_snapshot = AsyncMock(return_value=b"\xff\xd8testjpeg\xff\xd9")
         inst.pause = AsyncMock(return_value={})
         inst.resume = AsyncMock(return_value={})
         inst.grid = AsyncMock(return_value={})
