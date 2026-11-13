@@ -34,6 +34,7 @@ from .const import (
     CONF_API_KEY,
     CONF_HOST,
     CONF_PORT,
+    CONF_RESTART_TOKEN,
     DEFAULT_PORT,
     DOMAIN,
     PLATFORMS,
