@@ -74,6 +74,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._cameraOptions = cameraSelect ? cameraSelect.attributes.options.filter(x => x !== "Grid") : [];
       this._entryId = this._entryId || cameraSelect?.attributes?.viewpie_entry_id || panelSelect?.attributes?.viewpie_entry_id || "";
       this._render();
+      this._loadStoredCameraPreviews();
     } catch (err) {
       this._status = "Не удалось получить список камер и панелей из Home Assistant.";
       this._error = true;
@@ -226,6 +227,29 @@ class ViewpieLayoutEditor extends HTMLElement {
     root.append(style, card);
   }
 
+  async _loadStoredCameraPreviews() {
+    if (!this._hass || this._loadingStoredPreviews) return;
+    this._loadingStoredPreviews = true;
+    const cameras = [...(this._cameraOptions || [])];
+    for (const camera of cameras) {
+      if (this._cameraPreviewUrls.has(camera)) continue;
+      try {
+        const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
+        const response = await fetch(`/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`, {
+          method: "GET", credentials: "same-origin", cache: "no-store"
+        });
+        if (!response.ok) continue;
+        const blob = await response.blob();
+        if (!blob.type.toLowerCase().includes("image/jpeg")) continue;
+        this._cameraPreviewUrls.set(camera, URL.createObjectURL(blob));
+      } catch (err) {
+        console.warn(`Viewpie stored preview unavailable for camera "${camera}":`, err);
+      }
+    }
+    this._loadingStoredPreviews = false;
+    this._render();
+  }
+
   async _refreshAllCameraPreviews(silent = false) {
     if (!this._hass || this._previewRefreshing) return;
     const cameras = [...(this._cameraOptions || [])];
@@ -244,7 +268,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     for (const camera of cameras) {
       try {
         const query = this._entryId ? `?entry_id=${encodeURIComponent(this._entryId)}` : "";
-        const url = `/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query}`;
+        const url = `/api/viewpie/cameras/${encodeURIComponent(camera)}/snapshot${query ? query + "&refresh=1" : "?refresh=1"}`;
         const accessToken = this._hass?.auth?.data?.access_token;
         const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
         const response = await fetch(url, {
@@ -299,11 +323,6 @@ class ViewpieLayoutEditor extends HTMLElement {
       const placeholder = this._el("span", {}, camera ? "Превью не загружено" : "＋");
       placeholder.style.cssText = "flex:1;display:grid;place-items:center;color:var(--secondary-text-color);font-size:.8rem";
       cell.append(placeholder);
-    }
-    if (!camera) {
-      const label = this._el("span", {}, "＋");
-      label.style.cssText = "display:block;flex:0 0 auto;font-size:.82rem;color:var(--secondary-text-color)";
-      cell.append(label);
     }
     return cell;
   }
@@ -380,12 +399,14 @@ class ViewpieLayoutEditor extends HTMLElement {
       .picker-table { width:100%; border-collapse:collapse; table-layout:fixed; margin:12px 0; }
       .picker-table th,.picker-table td { text-align:left; padding:8px; border-bottom:1px solid var(--divider-color); vertical-align:middle; }
       .picker-table th { color:var(--secondary-text-color); font-size:.82rem; }
-      .picker-table th:first-child { width:44%; }
+      .picker-table th:nth-child(1) { width:18%; }
+      .picker-table th:nth-child(2) { width:24%; }
+      .picker-table th:nth-child(3) { width:58%; }
       .picker-table tr[data-selectable] { cursor:pointer; }
       .picker-table tr[data-selectable]:hover { background:var(--secondary-background-color); }
-      .picker-camera { display:flex; flex-direction:column; gap:5px; width:100%; padding:3px; border:0; background:transparent; color:var(--primary-text-color); text-align:left; cursor:pointer; }
+      .picker-camera { display:block; width:100%; max-width:25%; padding:3px; border:0; background:transparent; cursor:pointer; }
       .picker-camera img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:5px; background:var(--secondary-background-color); }
-      .picker-camera span { font-size:.78rem; line-height:1.2; overflow-wrap:anywhere; }
+      .picker-name { font-weight:600; overflow-wrap:anywhere; }
       .picker-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
       .picker-size { min-width:120px; }
     `;
@@ -398,16 +419,17 @@ class ViewpieLayoutEditor extends HTMLElement {
   _renderCameraPicker(dialog, row, col) {
     dialog.replaceChildren();
     dialog.append(this._el("h3", {}, `Выбор камеры для ячейки ${row + 1}.${col + 1}`));
-    dialog.append(this._el("p", { class: "muted" }, "Выберите камеру. Во втором столбце показаны панели, где она уже используется."));
+    dialog.append(this._el("p", { class: "muted" }, "Выберите камеру. Справа показаны панели, где она уже используется."));
     const table = this._el("table", { class: "picker-table" });
     const head = this._el("thead");
     const header = this._el("tr");
-    header.append(this._el("th", {}, "Камера"), this._el("th", {}, "Панели, где используется"));
+    header.append(this._el("th", {}, "Превью"), this._el("th", {}, "Название камеры"), this._el("th", {}, "Панели, где используется"));
     head.append(header);
     const body = this._el("tbody");
     (this._cameraOptions || []).forEach(camera => {
       const tr = this._el("tr", { "data-selectable": "true" });
-      const nameCell = this._el("td");
+      const previewCell = this._el("td");
+      const nameCell = this._el("td", { class: "picker-name" }, camera);
       const select = this._el("button", { class: "picker-camera", type: "button" });
       const previewUrl = this._cameraPreviewUrls?.get(camera);
       if (previewUrl) {
@@ -419,12 +441,12 @@ class ViewpieLayoutEditor extends HTMLElement {
         placeholder.style.cssText = "display:grid;place-items:center;aspect-ratio:16/9;background:var(--secondary-background-color);border-radius:5px;color:var(--secondary-text-color);font-size:.75rem";
         select.append(placeholder);
       }
-      select.append(this._el("span", {}, camera));
       select.addEventListener("click", () => this._renderCameraSizePicker(dialog, row, col, camera));
-      nameCell.append(select);
-      tr.append(nameCell, this._el("td", { class: "muted" }, this._cameraPanelsLabel(camera)));
+      previewCell.append(select);
+      nameCell.addEventListener("click", () => this._renderCameraSizePicker(dialog, row, col, camera));
+      tr.append(previewCell, nameCell, this._el("td", { class: "muted" }, this._cameraPanelsLabel(camera)));
       tr.addEventListener("click", event => {
-        if (event.target !== select) this._renderCameraSizePicker(dialog, row, col, camera);
+        if (!event.target.closest("button")) this._renderCameraSizePicker(dialog, row, col, camera);
       });
       body.append(tr);
     });
