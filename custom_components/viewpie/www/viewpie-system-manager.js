@@ -538,28 +538,48 @@ class ViewpieSystemManager extends HTMLElement {
         if (!response.ok) throw new Error("GitHub API HTTP " + response.status);
         const release = await response.json();
         const latest = String(release.tag_name || "").replace(/^v/i,"");
-        let store = "marketplace";
-        let repositoryResponse;
-        try {
-          repositoryResponse = await this._hass.callWS({
-            type: "marketplace/repositories/list",
-            categories: ["integration"]
-          });
-        } catch (_) {
-          store = "hacs";
-          repositoryResponse = await this._hass.callWS({
-            type: "hacs/repositories/list",
-            categories: ["integration"]
-          });
+        // Home Assistant callWS resolves to the command payload itself (the
+        // Marketplace/HACS list commands return an array), not a REST-style
+        // {result: ...} envelope. Accept both forms for compatibility.
+        const normalizeRepositoryList = response => {
+          const payload = response?.result ?? response;
+          if (Array.isArray(payload)) return payload;
+          if (Array.isArray(payload?.repositories)) return payload.repositories;
+          return [];
+        };
+        const managers = [
+          {
+            store: "marketplace",
+            command: {type: "marketplace/repositories/list", categories: ["integration"]}
+          },
+          {
+            store: "hacs",
+            command: {type: "hacs/repositories/list", categories: ["integration"]}
+          }
+        ];
+        let store = null;
+        let repository = null;
+        const lookupErrors = [];
+        for (const manager of managers) {
+          try {
+            const response = await this._hass.callWS(manager.command);
+            const repositories = normalizeRepositoryList(response);
+            const candidate = repositories.find(item =>
+              String(item.full_name || "").trim().toLowerCase() === "shnyak/home-assistant-viewpie"
+            );
+            if (candidate && candidate.installed === true) {
+              store = manager.store;
+              repository = candidate;
+              break;
+            }
+          } catch (err) {
+            lookupErrors.push(manager.store.toUpperCase() + ": " + (err?.message || String(err)));
+          }
         }
-        const repositories = Array.isArray(repositoryResponse?.result)
-          ? repositoryResponse.result
-          : (repositoryResponse?.result?.repositories || []);
-        const repository = repositories.find(item =>
-          String(item.full_name || "").toLowerCase() === "shnyak/home-assistant-viewpie"
-        );
-        if (!repository || !repository.installed) {
-          integrationUpdateStatus.textContent = "Репозиторий не найден среди установленных в Marketplace/HACS. Кнопка установки доступна для интеграции, установленной через один из этих менеджеров.";
+        if (!repository) {
+          integrationUpdateStatus.textContent = lookupErrors.length === managers.length
+            ? "Не удалось получить список репозиториев Marketplace и HACS. " + lookupErrors.join("; ")
+            : "Репозиторий Viewpie не найден среди установленных в Marketplace или HACS. Проверьте, что он добавлен и установлен в одном из менеджеров.";
           return;
         }
         const current = String(repository.installed_version || "0.0.0").replace(/^v/i,"");
