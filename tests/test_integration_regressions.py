@@ -91,6 +91,15 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("Доступно обновление Viewpie до версии", card)
         self.assertIn("Проверка ещё не выполнялась", card)
 
+    def test_integration_release_check_uses_authenticated_home_assistant_proxy(self):
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("class ViewpieIntegrationReleaseView(HomeAssistantView)", source)
+        self.assertIn('url = "/api/viewpie/integration/latest-release"', source)
+        self.assertIn("hass.http.register_view(ViewpieIntegrationReleaseView())", source)
+        card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn('fetch("/api/viewpie/integration/latest-release"', card)
+        self.assertIn('callService("homeassistant","restart")', card)
+
     def test_legacy_updater_versions_require_one_time_bootstrap(self):
         import runpy
 
