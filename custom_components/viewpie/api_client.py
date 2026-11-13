@@ -87,6 +87,10 @@ class ViewpieApiClient:
                 await self._connector.close()
                 self._connector = None
 
+    def set_api_key(self, api_key: Optional[str]) -> None:
+        """Update the shared service token without rebuilding the HTTP client."""
+        self._api_key = api_key
+
     def _headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self._api_key:
