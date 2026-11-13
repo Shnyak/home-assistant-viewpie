@@ -124,7 +124,7 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ViewpieOptionsFlow(config_entries.OptionsFlow):
-    """Configure the dedicated token used only for the host reboot action."""
+    """Configure the shared service token used by all API requests and restart."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

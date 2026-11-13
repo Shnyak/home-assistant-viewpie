@@ -224,6 +224,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host: str = entry.data[CONF_HOST]
     port: int = entry.data.get(CONF_PORT, DEFAULT_PORT)
     api_key = _api_token_for_entry(entry)
+    if not api_key:
+        _LOGGER.warning(
+            "No Viewpie service token is configured; enter it in integration options before enabling API-wide authentication"
+        )
 
     import custom_components.viewpie as vp
 

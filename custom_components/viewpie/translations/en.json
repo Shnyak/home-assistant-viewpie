@@ -24,8 +24,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Viewpie host restart",
-        "description": "Set the secret token configured in the Viewpie service environment.",
+        "title": "Viewpie service token",
+        "description": "Set the service token used for the complete Viewpie API and Raspberry Pi restart.",
         "data": {
           "restart_token": "Restart token"
         }

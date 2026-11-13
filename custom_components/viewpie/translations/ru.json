@@ -24,8 +24,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Перезагрузка Viewpie",
-        "description": "Укажите секретный токен, настроенный в окружении службы Viewpie.",
+        "title": "Токен службы Viewpie",
+        "description": "Укажите токен службы, который используется для всего API Viewpie и перезагрузки Raspberry Pi.",
         "data": {
           "restart_token": "Токен перезагрузки"
         }
