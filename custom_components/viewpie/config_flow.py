@@ -80,7 +80,7 @@ class ViewpieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             host = user_input[CONF_HOST].strip()
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
-            api_key = user_input.get(CONF_API_KEY) or None
+            api_key = (user_input.get(CONF_API_KEY) or "").strip() or None
             restart_token = (user_input.get(CONF_RESTART_TOKEN) or "").strip()
             auth_token = restart_token or api_key
 
