@@ -236,9 +236,8 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._update_install_pending = True
         self._install_authorized_version = None
         self._update_info.update({
-            "update_available": False,
             "can_install": False,
-            "manual_check_required": False,
+            "manual_check_required": bool(self._update_info.get("update_available")),
         })
         # Clear the stale journal in coordinator state immediately, before
         # the request can restart the remote API or interrupt HA polling.
