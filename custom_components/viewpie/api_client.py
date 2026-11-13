@@ -40,6 +40,10 @@ class ViewpieConnectionError(Exception):
     """Raised when the viewpie device cannot be reached or returns an error."""
 
 
+def _is_valid_jpeg_snapshot(data: bytes) -> bool:
+    """Return whether a payload has the JPEG SOI and EOI marker bytes."""
+    return len(data) >= 4 and data[:2] == bytes((0xFF, 0xD8)) and data[-2:] == bytes((0xFF, 0xD9))
+
 class ViewpieApiClient:
     """Async HTTP client for the modified viewpie REST API."""
 
@@ -173,7 +177,7 @@ class ViewpieApiClient:
                         f"Viewpie snapshot endpoint returned unexpected content type: {content_type or 'missing'}"
                     )
                 data = await response.read()
-                if len(data) < 4 or not data.startswith(b"\\xff\\xd8") or not data.endswith(b"\\xff\\xd9"):
+                if not _is_valid_jpeg_snapshot(data):
                     raise ViewpieConnectionError("Viewpie returned an invalid JPEG snapshot")
                 return data
         except aiohttp.ClientError as err:
