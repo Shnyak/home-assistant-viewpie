@@ -327,6 +327,14 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("auth_token = restart_token or api_key", flow)
         self.assertIn('errors["base"] = "missing_api_token"', flow)
 
+    def test_token_option_updates_client_without_reloading_integration(self):
+        api = (INTEGRATION / "api_client.py").read_text(encoding="utf-8")
+        self.assertIn("def set_api_key(self, api_key: Optional[str])", api)
+        source = (INTEGRATION / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("async def async_update_token", source)
+        self.assertIn("runtime.client.set_api_key(_api_token_for_entry(entry))", source)
+        self.assertNotIn("async def async_reload_entry", source)
+
     def test_initial_setup_accepts_optional_restart_update_token(self):
         source = (INTEGRATION / "config_flow.py").read_text(encoding="utf-8")
         self.assertIn('vol.Optional(CONF_RESTART_TOKEN, default=""): str', source)
