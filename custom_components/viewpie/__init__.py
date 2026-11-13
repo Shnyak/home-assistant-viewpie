@@ -14,14 +14,16 @@ from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
+from aiohttp import web
 
 import voluptuous as vol
+from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
-from .api_client import ViewpieApiClient as _ViewpieApiClient
+from .api_client import ViewpieApiClient as _ViewpieApiClient, ViewpieConnectionError
 from .const import (
     ATTR_CAMERA,
     ATTR_DURATION,
@@ -43,6 +45,41 @@ from .coordinator import ViewpieCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
+class ViewpieCameraSnapshotView(HomeAssistantView):
+    """Authenticated Home Assistant proxy for one-shot camera JPEG snapshots."""
+
+    url = "/api/viewpie/cameras/{camera}/snapshot"
+    name = "api:viewpie:camera_snapshot"
+    requires_auth = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def get(self, request: web.Request, camera: str) -> web.Response:
+        runtimes = self.hass.data.get(DOMAIN, {})
+        entry_id = request.query.get("entry_id")
+        if entry_id:
+            runtime = runtimes.get(entry_id)
+            if runtime is None:
+                return web.Response(status=404, text="Viewpie device not found")
+        elif len(runtimes) == 1:
+            runtime = next(iter(runtimes.values()))
+        elif not runtimes:
+            return web.Response(status=503, text="Viewpie integration is not loaded")
+        else:
+            return web.Response(status=409, text="Specify entry_id for the Viewpie device")
+
+        try:
+            image = await runtime.client.get_camera_snapshot(camera)
+        except ViewpieConnectionError as error:
+            _LOGGER.warning("Camera preview failed for %s: %s", camera, error)
+            return web.Response(status=502, text=str(error))
+        return web.Response(
+            body=image,
+            content_type="image/jpeg",
+            headers={"Cache-Control": "no-store"},
+        )
+
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Serve and register the bundled Viewpie Lovelace cards."""
     integration_dir = Path(__file__).parent
@@ -61,6 +98,8 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     if hass.http is None:
         _LOGGER.debug("Skipping Viewpie Lovelace cards: HTTP is unavailable")
         return True
+
+    hass.http.register_view(ViewpieCameraSnapshotView(hass))
 
     static_paths = []
     for filename, url_path, label in cards:
