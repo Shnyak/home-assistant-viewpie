@@ -483,6 +483,68 @@ class ViewpieSystemManager extends HTMLElement {
       updateHint.textContent = "Проверка ещё не выполнялась. Нажмите «Проверить обновления», чтобы получить актуальный результат.";
     }
 
+    const integrationUpdateSection = document.createElement("div");
+    integrationUpdateSection.className = "section";
+    integrationUpdateSection.textContent = "Обновление интеграции Home Assistant";
+    const integrationUpdateStatus = document.createElement("div");
+    integrationUpdateStatus.className = "hint";
+    integrationUpdateStatus.textContent = "Установленная версия: 1.6.9. Проверка выполняется вручную.";
+    const integrationUpdateActions = document.createElement("div");
+    integrationUpdateActions.style.display = "grid";
+    integrationUpdateActions.style.gap = "8px";
+    const integrationCheck = document.createElement("button");
+    integrationCheck.textContent = "Проверить версию интеграции";
+    integrationCheck.addEventListener("click", async () => {
+      integrationCheck.disabled = true;
+      integrationUpdateStatus.textContent = "Проверяем последний стабильный релиз на GitHub…";
+      try {
+        const response = await fetch("https://api.github.com/repos/Shnyak/home-assistant-viewpie/releases/latest", {
+          headers: {Accept:"application/vnd.github+json"}, cache:"no-store"
+        });
+        if (!response.ok) throw new Error("GitHub API HTTP " + response.status);
+        const release = await response.json();
+        const latest = String(release.tag_name || "").replace(/^v/i,"");
+        const current = "1.6.9";
+        const parse = value => value.split(".").map(part => Number.parseInt(part,10) || 0);
+        const a=parse(latest), b=parse(current);
+        const newer=a.some((value,index)=>value>(b[index]||0) && a.slice(0,index).every((n,i)=>n===(b[i]||0)));
+        integrationUpdateStatus.textContent = newer
+          ? "Доступна интеграция " + release.tag_name + ". Установлена версия " + current + ". Откройте HACS для обновления, затем перезапустите Home Assistant."
+          : "Установлена актуальная версия интеграции " + current + ". Последний релиз: " + (release.tag_name || "неизвестно") + ".";
+        if (newer && release.html_url) {
+          const releaseLink = document.createElement("a");
+          releaseLink.href = release.html_url;
+          releaseLink.target = "_blank";
+          releaseLink.rel = "noopener";
+          releaseLink.textContent = "Открыть релиз";
+          releaseLink.style.color = "var(--primary-color)";
+          integrationUpdateStatus.append(document.createElement("br"), releaseLink);
+        }
+      } catch (err) {
+        integrationUpdateStatus.textContent = "Не удалось проверить релиз интеграции: " + (err?.message || err);
+      } finally {
+        integrationCheck.disabled = false;
+      }
+    });
+    const openHacs = document.createElement("button");
+    openHacs.textContent = "Открыть интеграцию в HACS";
+    openHacs.addEventListener("click", () => {
+      window.open("https://my.home-assistant.io/redirect/hacs_repository/?owner=Shnyak&repository=home-assistant-viewpie&category=integration", "_blank", "noopener");
+    });
+    const restartHa = document.createElement("button");
+    restartHa.textContent = "Перезапустить Home Assistant";
+    restartHa.addEventListener("click", async () => {
+      if (!this._hass || !window.confirm("Перезапустить Home Assistant сейчас? Все интеграции и автоматизации временно станут недоступны.")) return;
+      restartHa.disabled = true;
+      try {
+        await this._hass.callService("homeassistant","restart");
+      } catch (err) {
+        restartHa.disabled = false;
+        window.alert("Не удалось отправить команду перезапуска Home Assistant: " + (err?.message || err));
+      }
+    });
+    integrationUpdateActions.append(integrationCheck,openHacs,restartHa);
+
     const journalEntity = this._rows?.find(row => row.label === "Update process")?.state;
     const journal = journalEntity?.attributes || {};
     const waitingForNewUpdate = Boolean(this._terminalClearPending);
@@ -573,7 +635,7 @@ class ViewpieSystemManager extends HTMLElement {
     terminalLog.className = waitingForNewUpdate || !journal.log ? "terminal-empty" : "";
     terminal.append(terminalLog);
 
-    card.append(title, section, rows, controlsSection, button, hint, updateSection, updateActions, updateHint, terminal);
+    card.append(title, section, rows, controlsSection, button, hint, updateSection, updateActions, updateHint, integrationUpdateSection, integrationUpdateActions, integrationUpdateStatus, terminal);
     root.append(style, card);
     // The card is rebuilt on every Home Assistant state update. Scroll after
     // the new content has been laid out so the newest log line stays visible.
