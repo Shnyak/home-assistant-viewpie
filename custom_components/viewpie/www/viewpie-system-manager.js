@@ -491,7 +491,7 @@ class ViewpieSystemManager extends HTMLElement {
     integrationUpdateSection.textContent = "Обновление интеграции Home Assistant";
     const integrationUpdateStatus = document.createElement("div");
     integrationUpdateStatus.className = "hint";
-    integrationUpdateStatus.textContent = "Установленная версия: 1.6.10. Нажмите «Проверить», чтобы найти обновление.";
+    integrationUpdateStatus.textContent = "Нажмите «Проверить обновления», чтобы узнать установленную версию и найти новую.";
     const integrationUpdateActions = document.createElement("div");
     integrationUpdateActions.className = "update-actions";
     const integrationCheck = document.createElement("button");
@@ -538,14 +538,6 @@ class ViewpieSystemManager extends HTMLElement {
         if (!response.ok) throw new Error("GitHub API HTTP " + response.status);
         const release = await response.json();
         const latest = String(release.tag_name || "").replace(/^v/i,"");
-        const current = "1.6.10";
-        const parse = value => value.split(".").map(part => Number.parseInt(part,10) || 0);
-        const a=parse(latest), b=parse(current);
-        const newer=a.some((value,index)=>value>(b[index]||0) && a.slice(0,index).every((n,i)=>n===(b[i]||0)));
-        if (!newer) {
-          integrationUpdateStatus.textContent = "Установлена актуальная версия интеграции " + current + ". Последний релиз: " + (release.tag_name || "неизвестно") + ".";
-          return;
-        }
         let store = "marketplace";
         let repositoryResponse;
         try {
@@ -567,7 +559,15 @@ class ViewpieSystemManager extends HTMLElement {
           String(item.full_name || "").toLowerCase() === "shnyak/home-assistant-viewpie"
         );
         if (!repository || !repository.installed) {
-          integrationUpdateStatus.textContent = "Доступна версия " + release.tag_name + ", но установленный репозиторий не найден в Marketplace/HACS. Кнопка установки доступна для интеграции, установленной через один из этих менеджеров.";
+          integrationUpdateStatus.textContent = "Репозиторий не найден среди установленных в Marketplace/HACS. Кнопка установки доступна для интеграции, установленной через один из этих менеджеров.";
+          return;
+        }
+        const current = String(repository.installed_version || "0.0.0").replace(/^v/i,"");
+        const parse = value => value.split(".").map(part => Number.parseInt(part,10) || 0);
+        const a=parse(latest), b=parse(current);
+        const newer=a.some((value,index)=>value>(b[index]||0) && a.slice(0,index).every((n,i)=>n===(b[i]||0)));
+        if (!newer) {
+          integrationUpdateStatus.textContent = "Установлена актуальная версия интеграции " + current + ". Последний релиз: " + (release.tag_name || "неизвестно") + ".";
           return;
         }
         const repositoryId = String(repository.id);
