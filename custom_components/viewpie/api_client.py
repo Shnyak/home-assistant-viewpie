@@ -157,7 +157,11 @@ class ViewpieApiClient:
         assert self._session is not None
         url = f"{self._base_url}/api/cameras/{quote(name, safe='')}/snapshot"
         try:
-            async with self._session.get(url, headers=self._headers()) as response:
+            async with self._session.get(
+                url,
+                headers=self._headers(),
+                timeout=ClientTimeout(total=15),
+            ) as response:
                 if response.status >= 400:
                     detail = (await response.text()).strip()
                     raise ViewpieConnectionError(
