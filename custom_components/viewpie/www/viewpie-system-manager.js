@@ -426,7 +426,7 @@ class ViewpieSystemManager extends HTMLElement {
       updateHint.style.whiteSpace = "pre-line";
       updateHint.style.overflowWrap = "anywhere";
       updateHint.textContent =
-        `Установлена старая версия ${updateAttrs.installed_version || ""}. Её встроенный установщик не может проверить новый Debian-пакет. Для первого перехода на ${latestVersion || updateAttrs.latest_version || "0.2.27-fork"} выполните на Raspberry Pi по SSH:\n\n${bootstrapCommand}\n\nСкрипт проверит архитектуру и SHA-256. Перезагрузка выполняется отдельно.`;
+        `Установлена старая версия ${updateAttrs.installed_version || ""}. Её встроенный установщик не может проверить новый Debian-пакет. Для первого перехода на ${latestVersion || updateAttrs.latest_version || "0.2.27-fork"} выполните на Raspberry Pi по SSH:\n\n${bootstrapCommand}\n\nСкрипт проверит архитектуру и SHA-256, установит Viewpie и автоматически перезагрузит Raspberry Pi.`;
       const copyBootstrap = document.createElement("button");
       copyBootstrap.textContent = "Копировать команду первоначального обновления";
       copyBootstrap.addEventListener("click", async () => {
