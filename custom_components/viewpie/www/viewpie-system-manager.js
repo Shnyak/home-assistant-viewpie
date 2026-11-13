@@ -424,9 +424,11 @@ class ViewpieSystemManager extends HTMLElement {
     if (installJournalStatus === "running" || this._terminalClearPending) {
       installButton.textContent = "Идёт установка";
       installButton.disabled = true;
+      updateHint.textContent = "Viewpie устанавливает пакет. После успешной установки Raspberry Pi автоматически перезагрузится.";
     } else if (installJournalStatus === "success" && this._installSuccessAwaitingManualCheck) {
       installButton.textContent = "Установлена " + installedVersion;
       installButton.disabled = true;
+      updateHint.textContent = "Обновление установлено. Нажмите «Проверить обновления», чтобы выполнить новую проверку.";
     } else if (updateAvailable === "Да" && updateAttrs.bootstrap_required) {
       installButton.disabled = true;
       const bootstrapCommand = String(updateAttrs.bootstrap_command || "");
@@ -464,6 +466,8 @@ class ViewpieSystemManager extends HTMLElement {
       });
       updateActions.insertBefore(copyBootstrap, installButton);
     } else if (updateAvailable === "Нет") {
+      installButton.textContent = "Установлена " + (installedVersion || latestVersion || "");
+      installButton.disabled = true;
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
     } else if (updateAvailable === "Да") {
       updateHint.textContent = this._installUpdateButton?.state === "unavailable"
