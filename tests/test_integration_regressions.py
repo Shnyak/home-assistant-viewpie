@@ -361,12 +361,14 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('callService("viewpie", "reorder_panels"', card)
         self.assertIn('async _movePanel(panelId, delta)', card)
 
-    def test_view_selector_exposes_startup_panel_setting(self):
-        card = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
-        self.assertIn('s.attributes?.icon === "mdi:home-map-marker"', card)
-        self.assertIn('async _setStartupPanel(panelId)', card)
-        self.assertIn('Панель при запуске', card)
-        self.assertIn('Настройка стартовой панели доступна после обновления Viewpie', card)
+    def test_startup_panel_setting_is_in_system_management_card(self):
+        selector = (INTEGRATION / "www" / "viewpie-view-selector.js").read_text(encoding="utf-8")
+        manager = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertNotIn("startupPanel", selector)
+        self.assertIn('startupPanel: findNamed("select", ["стартовая панель"])', manager)
+        screen_mode = manager.index('addSelectControl("После подачи питания на экран"')
+        startup_panel = manager.index('addSelectControl("Панель при запуске"')
+        self.assertLess(screen_mode, startup_panel)
 
     def test_update_console_is_cleared_for_each_new_installation(self):
         source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")

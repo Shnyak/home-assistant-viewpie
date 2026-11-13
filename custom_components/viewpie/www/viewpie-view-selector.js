@@ -7,7 +7,6 @@ class ViewpieViewSelector extends HTMLElement {
     this._panels = [];
     this._cameras = [];
     this._panelEntity = null;
-    this._startupPanelEntity = null;
     this._fullscreenEntity = null;
     this._screenEntity = null;
     this._busy = false;
@@ -23,8 +22,6 @@ class ViewpieViewSelector extends HTMLElement {
       s.attributes?.icon === "mdi:fullscreen" && Array.isArray(s.attributes?.options));
     const panel = states.find(s => s.entity_id.startsWith("select.") &&
       s.attributes?.icon === "mdi:view-dashboard" && Array.isArray(s.attributes?.options));
-    const startupPanel = states.find(s => s.entity_id.startsWith("select.") &&
-      s.attributes?.icon === "mdi:home-map-marker" && Array.isArray(s.attributes?.options));
     // With has_entity_name enabled, HA composes friendly_name from the
     // device name and entity name (for example "Viewpie (host) Экран").
     // Match the dedicated screen switch by its stable icon/name instead of
@@ -43,18 +40,15 @@ class ViewpieViewSelector extends HTMLElement {
     const signature = JSON.stringify([
       fullscreen?.entity_id, fullscreen?.attributes?.options, fullscreen?.state,
       panel?.entity_id, panel?.attributes?.options, panel?.state,
-      panel?.attributes?.panel_details, startupPanel?.entity_id,
-      startupPanel?.attributes?.options, startupPanel?.state, screen?.entity_id, screen?.state
+      panel?.attributes?.panel_details, screen?.entity_id, screen?.state
     ]);
     if (signature !== this._signature) {
       this._signature = signature;
       this._fullscreenEntity = fullscreen || null;
       this._panelEntity = panel || null;
-      this._startupPanelEntity = startupPanel || null;
       this._screenEntity = screen || null;
       this._entryId = this._config.entry_id ||
-        panel?.attributes?.viewpie_entry_id ||
-        startupPanel?.attributes?.viewpie_entry_id || "";
+        panel?.attributes?.viewpie_entry_id || "";
       this._panelDetails = panel?.attributes?.panel_details || {};
       this._cameras = fullscreen ? fullscreen.attributes.options.filter(x => x !== "Grid") : [];
       this._panels = panel ? panel.attributes.options : [];
@@ -133,22 +127,6 @@ class ViewpieViewSelector extends HTMLElement {
     }
   }
 
-  async _setStartupPanel(panelId) {
-    if (this._busy || !this._hass || !this._startupPanelEntity) return;
-    this._busy = true;
-    this._status = "Сохраняю стартовую панель…";
-    this._render();
-    try {
-      await this._callSelect(this._startupPanelEntity, panelId);
-      this._status = "Стартовая панель: " + this._panelLabel(panelId);
-    } catch (err) {
-      this._status = "Не удалось сохранить стартовую панель: " + (err?.message || err);
-    } finally {
-      this._busy = false;
-      this._render();
-    }
-  }
-
   async _movePanel(panelId, delta) {
     if (this._busy || !this._hass) return;
     const order = [...this._panels];
@@ -163,7 +141,7 @@ class ViewpieViewSelector extends HTMLElement {
       const payload = {order};
       if (this._entryId) payload.entry_id = this._entryId;
       await this._hass.callService("viewpie", "reorder_panels", payload);
-      const ids = [this._panelEntity?.entity_id, this._startupPanelEntity?.entity_id].filter(Boolean);
+      const ids = [this._panelEntity?.entity_id].filter(Boolean);
       if (ids.length) {
         await this._hass.callService("homeassistant", "update_entity", {entity_id: ids});
       }
