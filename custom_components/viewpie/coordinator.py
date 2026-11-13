@@ -23,6 +23,7 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._update_journal_poll_attempts = 0
         self._update_install_pending = False
         self._update_install_baseline_started_at = ""
+        self._install_authorized_version: str | None = None
     async def _async_update_data(self) -> dict[str, Any]:
         try:
             data = await self.client.get_status()
@@ -113,7 +114,9 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "installed_version": str(current_version),
                 "update_available": False,
                 "can_install": False,
+                "manual_check_required": False,
             })
+            self._install_authorized_version = None
         if self._update_info:
             data.update(self._update_info)
         return data
@@ -136,26 +139,40 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._update_install_pending:
             return
         try:
-            await self.async_check_update()
+            await self.async_check_update(manual=False)
         except Exception as err:
             _LOGGER.warning("Automatic Viewpie update check failed: %s", err)
 
-    async def async_check_update(self) -> dict[str, Any]:
-        """Check GitHub and retain the latest result for manual and scheduled checks."""
+    async def async_check_update(self, *, manual: bool = True) -> dict[str, Any]:
+        """Check GitHub; only an explicit manual check authorizes installation."""
         checked_at = datetime.now(timezone.utc).isoformat()
         try:
             info = await self.client.check_update()
         except Exception as err:
+            if manual:
+                self._install_authorized_version = None
             self._update_info = {
                 **self._update_info,
+                "can_install": False if manual else self._update_info.get("can_install", False),
+                "manual_check_required": bool(self._update_info.get("update_available")) if manual else self._update_info.get("manual_check_required", False),
                 "update_check_status": "error",
                 "update_check_message": str(err),
                 "update_checked_at": checked_at,
             }
             await self.async_request_refresh()
             raise
+        latest_version = str(info.get("latest_version") or "")
+        if manual:
+            self._install_authorized_version = (
+                latest_version if info.get("update_available") and info.get("can_install") else None
+            )
+        authorized = bool(latest_version) and self._install_authorized_version == latest_version
         self._update_info = {
             **info,
+            "can_install": bool(info.get("can_install")) and authorized,
+            "manual_check_required": bool(info.get("update_available"))
+            and bool(info.get("can_install"))
+            and not authorized,
             "update_check_status": "checked",
             "update_check_message": "",
             "update_checked_at": checked_at,
@@ -213,6 +230,12 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         previous = previous if isinstance(previous, dict) else {}
         self._update_install_baseline_started_at = str(previous.get("started_at") or "")
         self._update_install_pending = True
+        self._install_authorized_version = None
+        self._update_info.update({
+            "update_available": False,
+            "can_install": False,
+            "manual_check_required": False,
+        })
         # Clear the stale journal in coordinator state immediately, before
         # the request can restart the remote API or interrupt HA polling.
         data = dict(self.data or {})
