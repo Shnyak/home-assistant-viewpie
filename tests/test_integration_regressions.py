@@ -389,6 +389,20 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn('"manual_check_required"', sensor)
 
 
+    def test_layout_editor_allows_geometric_merge_and_confirms_overwrite(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("const overlappingRegions = regions.filter", source)
+        self.assertIn("Затереть и продолжить", source)
+        self.assertIn("Отменить", source)
+        self.assertIn("overlappingRegions.forEach(region", source)
+        self.assertNotIn("if (!free) continue", source)
+
+    def test_camera_preview_sends_home_assistant_access_token(self):
+        source = (INTEGRATION / "www" / "viewpie-layout-editor.js").read_text(encoding="utf-8")
+        self.assertIn("this._hass?.auth?.data?.access_token", source)
+        self.assertIn("Authorization: `Bearer ${accessToken}`", source)
+
+
 if __name__ == "__main__":
     unittest.main()
 
