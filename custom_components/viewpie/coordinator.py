@@ -178,6 +178,10 @@ class ViewpieCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "update_checked_at": checked_at,
         }
         await self.async_request_refresh()
+        # A scheduled check and a manual check can overlap. Refresh requests
+        # are coalesced by DataUpdateCoordinator, so publish the latest
+        # authorization decision explicitly after the refresh completes.
+        self.async_set_updated_data({**(self.data or {}), **self._update_info})
         return dict(self._update_info)
 
     def async_start_update_journal_polling(self) -> None:
