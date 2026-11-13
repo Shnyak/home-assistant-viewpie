@@ -694,8 +694,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelId = "";
       this._panelName = "";
       this._cells = {};
-      this._rows = this._clamp(this._config.rows ?? 2, 1, 8);
-      this._cols = this._clamp(this._config.columns ?? 2, 1, 8);
+      this._rows = this._clamp(this._config.rows ?? 2, 1, 16);
+      this._cols = this._clamp(this._config.columns ?? 2, 1, 16);
       this._status = "Режим создания новой панели.";
       this._error = false;
       this._render();
@@ -813,8 +813,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._panelId = "";
       this._panelName = "";
       this._cells = {};
-      this._rows = this._clamp(this._config.rows ?? 2, 1, 8);
-      this._cols = this._clamp(this._config.columns ?? 2, 1, 8);
+      this._rows = this._clamp(this._config.rows ?? 2, 1, 16);
+      this._cols = this._clamp(this._config.columns ?? 2, 1, 16);
       this._status = "Панель «" + panelName + "» удалена.";
       this._error = false;
     } catch (err) {
