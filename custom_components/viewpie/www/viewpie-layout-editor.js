@@ -3,8 +3,8 @@ class ViewpieLayoutEditor extends HTMLElement {
     if (!config || typeof config !== "object") throw new Error("A card configuration object is required");
     this._config = config;
     this._entryId = config.entry_id || "";
-    this._rows = this._clamp(config.rows ?? 2, 1, 8);
-    this._cols = this._clamp(config.columns ?? 2, 1, 8);
+    this._rows = this._clamp(config.rows ?? 2, 1, 16);
+    this._cols = this._clamp(config.columns ?? 2, 1, 16);
     this._cells = this._cells || {};
     this._cameraPreviewUrls = this._cameraPreviewUrls || new Map();
     this._panelId = "";
@@ -118,9 +118,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       .panel-button{width:100%;height:100%;container-type:inline-size}.panel-button span{font-size:clamp(10px,12cqi,16px);line-height:1.15}
       .panel-button.active{background:var(--success-color,var(--primary-color));outline:2px solid var(--primary-color)}
       .panel-button.add{font-size:22px}
-      .panel-size{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:4px 0 12px}
-      .panel-size button{width:100%;min-height:44px;font-size:20px;padding:0}
-      .panel-size span{color:var(--secondary-text-color);font-size:.85rem}
+      .panel-size{display:flex;align-items:stretch;justify-content:center;gap:4px;width:100%;height:100%;min-width:0}
+      .panel-size button{box-sizing:border-box;flex:0 0 46%;width:46%;min-width:0;min-height:0;height:100%;padding:0 2px;font-size:18px}
       .grid{display:grid;gap:8px;margin:12px 0}
       .preview-grid{display:grid;gap:4px;padding:4px;border:1px solid var(--divider-color);
         border-radius:8px;background:var(--primary-background-color)}
@@ -148,11 +147,10 @@ class ViewpieLayoutEditor extends HTMLElement {
       button.addEventListener("click", () => this._loadPanelIntoEditor(panelId));
       panelButtons.append(button);
     });
-    const addPanel = this._el("button", {class:"panel-button add", title:"Создать панель"}, "+");
+    const addPanel = this._el("button", {class:"panel-button add", title:"Создать панель"}, "Создать");
     addPanel.type = "button";
     addPanel.addEventListener("click", () => this._openNewPanelDialog());
     panelButtons.append(addPanel);
-    card.append(panelButtons);
 
     if (this._selectedPanel) {
       const sizeControls = this._el("div", {class:"panel-size"});
@@ -162,11 +160,12 @@ class ViewpieLayoutEditor extends HTMLElement {
       minus.addEventListener("click", () => this._resizeSelectedPanel(-1));
       const plus = this._el("button", {title:"Увеличить сетку"}, "+");
       plus.type = "button";
-      plus.disabled = this._rows >= 8;
+      plus.disabled = this._rows >= 16;
       plus.addEventListener("click", () => this._resizeSelectedPanel(1));
       sizeControls.append(minus, plus);
-      card.append(sizeControls);
+      panelButtons.append(sizeControls);
     }
+    card.append(panelButtons);
 
     const previewTitle = this._el("h3", {}, "Предпросмотр раскладки");
     previewTitle.style.margin = "14px 0 8px";
@@ -232,10 +231,10 @@ class ViewpieLayoutEditor extends HTMLElement {
     const title = this._el("h3",{},"Новая панель");
     const fields = this._el("div",{class:"new-panel-fields"});
     const name = this._el("input",{placeholder:"Название панели"});
-    const size = this._el("input",{type:"number",min:"1",max:"8",value:String(this._clamp(this._config.rows ?? 2,1,8))});
+    const size = this._el("input",{type:"number",min:"1",max:"16",value:String(this._clamp(this._config.rows ?? 2,1,16))});
     const nameLabel = this._el("label",{},"Название панели");
     nameLabel.append(name);
-    const sizeLabel = this._el("label",{},"Размер квадратной сетки (1–8)");
+    const sizeLabel = this._el("label",{},"Размер квадратной сетки (1–16)");
     sizeLabel.append(size);
     fields.append(nameLabel,sizeLabel);
     const actions = this._el("div",{class:"picker-actions"});
@@ -243,7 +242,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     create.type="button";
     create.addEventListener("click",()=>{
       const panelName=name.value.trim();
-      const gridSize=this._clamp(size.value,1,8);
+      const gridSize=this._clamp(size.value,1,16);
       if(!panelName){window.alert("Укажите название панели.");return;}
       this._selectedPanel="";
       this._panelId=this._generatePanelId(panelName);
@@ -264,7 +263,7 @@ class ViewpieLayoutEditor extends HTMLElement {
 
   _resizeSelectedPanel(delta) {
     if(!this._selectedPanel)return;
-    const next=this._clamp(this._rows+delta,1,8);
+    const next=this._clamp(this._rows+delta,1,16);
     if(next===this._rows)return;
     const removed=Object.keys(this._cells).filter(key=>{
       const [row,col]=key.split(",").map(Number);
@@ -724,8 +723,8 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._render();
       return;
     }
-    this._rows = this._clamp(layout.length, 1, 8);
-    this._cols = this._clamp(cols, 1, 8);
+    this._rows = this._clamp(layout.length, 1, 16);
+    this._cols = this._clamp(cols, 1, 16);
     this._cells = {};
     const viewportMap = new Map();
     const sourceViewports = Array.isArray(panel.viewports) ? panel.viewports : [];
@@ -737,7 +736,7 @@ class ViewpieLayoutEditor extends HTMLElement {
         ).filter(Boolean));
       }
     });
-    layout.slice(0, 8).forEach((row, r) => row.slice(0, 8).forEach((slot, c) => {
+    layout.slice(0, 16).forEach((row, r) => row.slice(0, 16).forEach((slot, c) => {
       const camera = viewportMap.get(String(slot));
       if (Array.isArray(camera) && camera.length) this._cells[`${r},${c}`] = camera[0];
     }));
