@@ -6,6 +6,7 @@ class ViewpieLayoutEditor extends HTMLElement {
     this._rows = this._clamp(config.rows ?? 2, 1, 8);
     this._cols = this._clamp(config.columns ?? 2, 1, 8);
     this._cells = this._cells || {};
+    this._cameraPreviewUrls = this._cameraPreviewUrls || new Map();
     this._panelId = "";
     this._panelName = "";
     this._selectedPanel = "";
@@ -17,6 +18,11 @@ class ViewpieLayoutEditor extends HTMLElement {
   _clamp(value, min, max) {
     const n = Number(value);
     return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : min;
+  }
+
+  disconnectedCallback() {
+    for (const url of this._cameraPreviewUrls?.values?.() || []) URL.revokeObjectURL(url);
+    this._cameraPreviewUrls?.clear?.();
   }
 
   set hass(hass) {
@@ -253,6 +259,16 @@ class ViewpieLayoutEditor extends HTMLElement {
       flexDirection: "column", justifyContent: "center", textAlign: "center",
       overflowWrap: "anywhere"
     });
+    const previewUrl = camera ? this._cameraPreviewUrls?.get(camera) : "";
+    if (previewUrl) {
+      const image = this._el("img", { alt: `Кадр камеры ${camera}` });
+      image.src = previewUrl;
+      Object.assign(image.style, {
+        display: "block", width: "100%", maxHeight: "112px",
+        objectFit: "contain", marginBottom: "6px", borderRadius: "4px"
+      });
+      cell.append(image);
+    }
     const label = this._el(camera ? "strong" : "span", {}, camera || "Пусто");
     label.style.fontSize = ".85rem";
     if (!camera) label.style.color = "var(--secondary-text-color)";
@@ -434,7 +450,9 @@ class ViewpieLayoutEditor extends HTMLElement {
     let previewRequest = 0;
     dialog.addEventListener("close", () => {
       previewRequest++;
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl && this._cameraPreviewUrls.get(camera) !== previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     }, { once: true });
     const loadPreview = async () => {
       const request = ++previewRequest;
@@ -456,7 +474,9 @@ class ViewpieLayoutEditor extends HTMLElement {
         }
         if (request !== previewRequest) return;
         const nextUrl = URL.createObjectURL(blob);
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        const previousUrl = this._cameraPreviewUrls.get(camera);
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+        this._cameraPreviewUrls.set(camera, nextUrl);
         previewUrl = nextUrl;
         previewImage.src = previewUrl;
         previewImage.style.display = "block";
