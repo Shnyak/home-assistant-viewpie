@@ -224,6 +224,7 @@ class ViewpieViewSelector extends HTMLElement {
       .choice-list{display:grid;grid-template-rows:repeat(2,minmax(48px,auto));grid-auto-flow:column;grid-auto-columns:minmax(110px,1fr);gap:8px;overflow-x:auto;padding-bottom:3px}
       .choice-row{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;min-height:48px;width:100%;padding:7px;border:1px solid var(--divider-color);border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color);font-family:inherit;font-weight:600;font-size:clamp(11px,4cqi,16px);line-height:1.15;text-align:center;overflow-wrap:anywhere;container-type:inline-size;cursor:pointer}
       .choice-row.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
+      .choice-row span{font-size:clamp(10px,12cqi,16px);line-height:1.15}
       .choice-label{min-width:0;overflow-wrap:anywhere;text-align:center}
       .choice-label.active{font-weight:700;color:inherit}
       .panel-actions{display:none}
@@ -256,7 +257,8 @@ class ViewpieViewSelector extends HTMLElement {
     const activePanel = this._activePanel();
     this._panels.forEach(id => {
       const active = id === activePanel;
-      const button = this._el("button", {class: "choice-row" + (active ? " active" : "")}, this._panelLabel(id));
+      const button = this._el("button", {class: "choice-row" + (active ? " active" : "")});
+      button.append(this._el("span", {}, this._panelLabel(id)));
       button.type = "button";
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy || active;
@@ -289,7 +291,8 @@ class ViewpieViewSelector extends HTMLElement {
     const activeCamera = this._activeCamera();
     this._cameras.forEach(name => {
       const active = name === activeCamera;
-      const button = this._el("button", {class: "choice-row" + (active ? " active" : "")}, name);
+      const button = this._el("button", {class: "choice-row" + (active ? " active" : "")});
+      button.append(this._el("span", {}, name));
       button.type = "button";
       button.setAttribute("aria-pressed", String(active));
       button.disabled = this._busy;
