@@ -108,14 +108,14 @@ class ViewpieLayoutEditor extends HTMLElement {
       :host{display:block}ha-card{padding:16px}h2{font-size:1.2rem;margin:0 0 12px}
       button{box-sizing:border-box;border:0;border-radius:7px;padding:9px 8px;cursor:pointer;
         background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600;
-        font-size:clamp(11px,3.2cqi,15px);line-height:1.15;overflow-wrap:anywhere;min-width:0}
+        font-size:clamp(11px,2.8vw,15px);line-height:1.15;overflow-wrap:anywhere;min-width:0}
       button:disabled{opacity:.55;cursor:wait}
       input{box-sizing:border-box;width:100%;min-width:0;padding:9px;color:var(--primary-text-color);
         background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:6px}
       .muted{color:var(--secondary-text-color);font-size:.85rem}.error{color:var(--error-color)}
       .panel-buttons{display:grid;grid-template-rows:repeat(3,minmax(44px,auto));grid-auto-flow:column;
         grid-auto-columns:minmax(92px,1fr);gap:7px;overflow-x:auto;padding:2px 0 7px}
-      .panel-button{width:100%;height:100%;container-type:inline-size}
+      .panel-button{width:100%;height:100%;container-type:inline-size}.panel-button span{font-size:clamp(10px,12cqi,16px);line-height:1.15}
       .panel-button.active{background:var(--success-color,var(--primary-color));outline:2px solid var(--primary-color)}
       .panel-button.add{font-size:22px}
       .panel-size{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:4px 0 12px}
@@ -142,8 +142,9 @@ class ViewpieLayoutEditor extends HTMLElement {
 
     const panelButtons = this._el("div", {class:"panel-buttons"});
     (this._panelOptions || []).forEach(panelId => {
-      const button = this._el("button", {class:"panel-button" + (panelId === this._selectedPanel ? " active" : "")}, this._panelLabel(panelId));
+      const button = this._el("button", {class:"panel-button" + (panelId === this._selectedPanel ? " active" : "")});
       button.type = "button";
+      button.append(this._el("span", {}, this._panelLabel(panelId)));
       button.addEventListener("click", () => this._loadPanelIntoEditor(panelId));
       panelButtons.append(button);
     });
