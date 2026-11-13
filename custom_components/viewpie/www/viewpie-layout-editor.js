@@ -117,7 +117,7 @@ class ViewpieLayoutEditor extends HTMLElement {
         grid-auto-columns:minmax(92px,1fr);gap:7px;overflow-x:auto;padding:2px 0 7px}
       .panel-button{width:100%;height:100%;container-type:inline-size}.panel-button span{font-size:clamp(10px,12cqi,16px);line-height:1.15}
       .panel-button.active{background:var(--success-color,var(--primary-color));outline:2px solid var(--primary-color)}
-      .panel-button.add{font-size:22px}
+      .panel-button.add{font-size:clamp(10px,12cqi,16px)}
       .panel-size{display:flex;align-items:stretch;justify-content:center;gap:4px;width:100%;height:100%;min-width:0}
       .panel-size button{box-sizing:border-box;flex:0 0 46%;width:46%;min-width:0;min-height:0;height:100%;padding:0 2px;font-size:18px}
       .grid{display:grid;gap:8px;margin:12px 0}
