@@ -392,11 +392,13 @@ class ViewpieSystemManager extends HTMLElement {
     const installInProgress = Boolean(this._terminalClearPending) || ["starting", "running"].includes(installJournal.status);
     const installedVersion = installJournal.version || updateAttrs.installed_version || "";
     const installButton = document.createElement("button");
+    const installedAfterSuccess = installJournal.status === "success" &&
+      (updateAvailable !== "Да" || updateAttrs.manual_check_required);
     installButton.textContent = installInProgress
       ? "Идёт установка"
       : updateAvailable === "Да" && !updateAttrs.manual_check_required
         ? "Установить обновление"
-        : installJournal.status === "success" || updateAvailable === "Нет" || updateAttrs.manual_check_required
+        : installedAfterSuccess || updateAvailable === "Нет" || updateAttrs.manual_check_required
           ? `Установлена ${installedVersion || latestVersion || ""}`
           : "Установить обновление";
     installButton.disabled = installInProgress || updateAvailable !== "Да" ||
@@ -459,7 +461,9 @@ class ViewpieSystemManager extends HTMLElement {
       updateActions.insertBefore(copyBootstrap, installButton);
     } else if (installInProgress) {
       updateHint.textContent = "Обновление выполняется. После завершения Viewpie автоматически перезагрузит Raspberry Pi.";
-    } else if (installJournal.status === "success" && updateAvailable !== "Да") {
+    } else if (installJournal.status === "failed") {
+      updateHint.textContent = `Предыдущая установка завершилась ошибкой: ${installJournal.error || installJournal.message || "подробности в журнале ниже"}. После устранения причины нажмите «Проверить обновления».`;
+    } else if (installedAfterSuccess) {
       updateHint.textContent = `Установлена версия Viewpie ${installedVersion || latestVersion || ""}. Нажмите «Проверить обновления», чтобы проверить наличие следующей версии.`;
     } else if (updateAvailable === "Нет") {
       updateHint.textContent = `Обновлений нет. Установлена последняя версия Viewpie ${updateAttrs.installed_version || latestVersion || ""}.`;
