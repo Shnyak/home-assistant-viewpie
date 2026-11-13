@@ -363,6 +363,7 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         card = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
         self.assertIn("Идёт установка", card)
         self.assertIn("Установлена ", card)
+        self.assertIn('installJournal.status === "failed"', card)
         self.assertIn("installedVersion || latestVersion", card)
         self.assertIn('["starting", "running"].includes(installJournal.status)', card)
         coordinator = (INTEGRATION / "coordinator.py").read_text(encoding="utf-8")
