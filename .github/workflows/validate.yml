@@ -24,7 +24,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check PyYAML pytest pytest-homeassistant-custom-component pytest-socket
       - name: Compile Python files
         run: python -m compileall -q custom_components
-      - name: Check all Lovelace JavaScript syntax
+      - name: Check all Lovelace JavaScript syntax, including the camera layout editor
         run: |
           for file in custom_components/viewpie/www/*.js; do
             node --check "$file"
