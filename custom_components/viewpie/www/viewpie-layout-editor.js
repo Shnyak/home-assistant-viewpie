@@ -503,7 +503,7 @@ class ViewpieLayoutEditor extends HTMLElement {
       this._render();
       return;
     }
-    const layout = String(panel.layout || "").split(/\r?\n/).map(row => row.trim()).filter(Boolean).map(row => row.split(/\s+/));
+    const layout = String(panel.layout || "").split(/\r?\n/).map(row => row.trim().split(/\s+/)).filter(row => row.length && row[0]);
     if (!layout.length || !layout[0].length) {
       this._status = "У панели неизвестный формат layout; редактирование не загружено, чтобы не испортить конфигурацию.";
       this._error = true;
