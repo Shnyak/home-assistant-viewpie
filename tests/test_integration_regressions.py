@@ -463,6 +463,19 @@ class IntegrationSetupRegressionTests(unittest.TestCase):
         self.assertIn("restartPiButton.textContent = \"Перезагрузить Raspberry Pi\"", source)
         self.assertIn('restartHa.textContent = "Перезапустить HA"', source)
 
+    def test_integration_update_discovery_handles_callws_payload_and_falls_back_to_hacs(self):
+        source = (INTEGRATION / "www" / "viewpie-system-manager.js").read_text(encoding="utf-8")
+        self.assertIn("const normalizeRepositoryList = response =>", source)
+        self.assertIn("const payload = response?.result ?? response", source)
+        self.assertIn("if (Array.isArray(payload)) return payload", source)
+        self.assertIn('type: "marketplace/repositories/list"', source)
+        self.assertIn('type: "hacs/repositories/list"', source)
+        self.assertIn('String(item.full_name || "").trim().toLowerCase()', source)
+        self.assertIn("candidate && candidate.installed === true", source)
+        self.assertIn("for (const manager of managers)", source)
+        self.assertIn('type:"marketplace/repository/install"', source)
+        self.assertIn('type:"hacs/repository/download"', source)
+
 if __name__ == "__main__":
     unittest.main()
 
